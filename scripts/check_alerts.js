@@ -16,7 +16,7 @@ const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT'
     'BATUSDT', 'CTSIUSDT', 'RAREUSDT', 'FIDAUSDT', 'VANRYUSDT', 'WUSDT', 'EGLDUSDT', 'REZUSDT', 'PHAUSDT', 'SYNUSDT',
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT','OGUSDT',
     'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'HEMIUSDT' , 'CAKEUSDT'];
-const TIMEFRAMES_TO_CHECK = ['1h', '4h']; // Trailing Stop alerts are best on HTF
+const TIMEFRAMES_TO_CHECK = ['1h', '4h', '1d']; // Trailing Stop alerts are best on HTF
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -90,8 +90,10 @@ const saveState = async (state) => {
 const sendDiscordWebhook = (notification) => {
     console.log(`[!] ATTEMPTING TO SEND DISCORD NOTIFICATION for ${notification.title}`);
     const colorMap = {
-        'luxalgo-bullish-flip': 3066993, // Green
-        'luxalgo-bearish-flip': 15158332, // Red
+        'luxalgo-bullish-flip': 3066993,      // Green
+        'luxalgo-bearish-flip': 15158332,     // Red
+        'rsi-extreme-overbought': 15158332,  // Red
+        'rsi-extreme-oversold': 3066993,      // Green
     };
     const embed = {
         title: `${notification.icon} ${notification.title}`,
@@ -133,6 +135,39 @@ const sendDiscordWebhook = (notification) => {
 };
 
 // --- INDICATOR CALCULATION LOGIC ---
+
+const calculateRSI = (klines, length = 14) => {
+    const closes = klines.map(k => k.close);
+    if (closes.length <= length) return [];
+
+    const gains = [];
+    const losses = [];
+    for (let i = 1; i < closes.length; i++) {
+        const change = closes[i] - closes[i - 1];
+        gains.push(Math.max(0, change));
+        losses.push(Math.max(0, -change));
+    }
+
+    let avgGain = gains.slice(0, length).reduce((sum, val) => sum + val, 0) / length;
+    let avgLoss = losses.slice(0, length).reduce((sum, val) => sum + val, 0) / length;
+
+    const rsiValues = [];
+    for (let i = length; i < gains.length; i++) {
+        const rs = avgLoss === 0 ? Infinity : avgGain / avgLoss;
+        const rsi = 100 - (100 / (1 + rs));
+        rsiValues.push(rsi);
+
+        avgGain = (avgGain * (length - 1) + gains[i]) / length;
+        avgLoss = (avgLoss * (length - 1) + losses[i]) / length;
+    }
+    
+    // The first `length` gains/losses are used for the seed average, so the RSI values
+    // correspond to the klines starting from `length + 1`. We need to pad the beginning
+    // of the array so the indices match the klines array.
+    const padding = Array(klines.length - rsiValues.length).fill(null);
+    return [...padding, ...rsiValues];
+};
+
 const sma = (source, length) => {
     const useLength = Math.min(source.length, length);
     if (useLength === 0) return [0];
@@ -226,8 +261,9 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 
     const lastKline = data.klines[data.klines.length - 1];
 
-    // --- ONLY TRAILING STOP ALERTS ARE ACTIVE ---
-    if (data.luxalgoTrail && data.luxalgoTrail.length >= 2) {
+    // --- TRAILING STOP ALERTS ---
+    const isLuxAlgoEnabled = process.env.ALERT_LUXALGO_FLIP_ENABLED === 'true';
+    if (isLuxAlgoEnabled && data.luxalgoTrail && data.luxalgoTrail.length >= 2) {
         const lastTrail = data.luxalgoTrail[data.luxalgoTrail.length - 1];
         const prevTrail = data.luxalgoTrail[data.luxalgoTrail.length - 2];
         const BULLISH = 1;
@@ -245,6 +281,34 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 `${symbol} Bearish Flip (${timeframe})`,
                 `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`,
                 '🔄');
+        }
+    }
+    
+    // --- RSI EXTREME ALERTS ---
+    const isRsiEnabled = process.env.ALERT_RSI_EXTREMES_ENABLED === 'true';
+    if (isRsiEnabled && data.rsi && data.rsi.length >= 2) {
+        const lastRsi = data.rsi[data.rsi.length - 1];
+        const prevRsi = data.rsi[data.rsi.length - 2];
+
+        if (lastRsi !== null && prevRsi !== null) {
+            // Extreme Overbought
+            if (lastRsi > 75 && prevRsi <= 75 && canFire('rsi-extreme-overbought')) {
+                addAlert(
+                    'rsi-extreme-overbought',
+                    `${symbol} Extreme Overbought (${timeframe})`,
+                    `RSI is now ${lastRsi.toFixed(2)}, crossing above 75.`,
+                    '📈'
+                );
+            }
+            // Extreme Oversold
+            if (lastRsi < 25 && prevRsi >= 25 && canFire('rsi-extreme-oversold')) {
+                addAlert(
+                    'rsi-extreme-oversold',
+                    `${symbol} Extreme Oversold (${timeframe})`,
+                    `RSI is now ${lastRsi.toFixed(2)}, crossing below 25.`,
+                    '📉'
+                );
+            }
         }
     }
     
@@ -281,6 +345,7 @@ const main = async () => {
                 const data = {
                     klines,
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
+                    rsi: calculateRSI(klines),
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
