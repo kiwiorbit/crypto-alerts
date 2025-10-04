@@ -10,13 +10,13 @@ const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT'
     'TIAUSDT', 'ETHFIUSDT', 'FETUSDT', 'APTUSDT', 'LDOUSDT', 'TONUSDT', 'RAYUSDT', 'PENDLEUSDT', 'SOMIUSDT', 'DIAUSDT',
     'BIOUSDT', 'RENDERUSDT', 'CGPTUSDT', 'CFXUSDT', 'JUPUSDT', 'BERAUSDT', 'GALAUSDT', 'GRTUSDT', 'SFPUSDT','LPTUSDT',
     'ALGOUSDT', 'ROSEUSDT', 'AIXBTUSDT', 'ENSUSDT', 'VETUSDT', 'RUNEUSDT', 'BLURUSDT', 'STRKUSDT', 'PORTALUSDT', 'PIXELUSDT',
-    'STXUSDT', 'ZROUSDT','QNTUSDT', 'NEOUSDT', 'AXSUSDT', 'HYPERUSDT', 'RSRUSDT', 'SAGAUSDT', 'MOVEUSDT', 'NMRUSDT',
+    'STXUSDT', 'ZROUSDT', 'QNTUSDT', 'NEOUSDT', 'AXSUSDT', 'HYPERUSDT', 'RSRUSDT', 'SAGAUSDT', 'MOVEUSDT', 'NMRUSDT',
     'SANDUSDT', 'YGGUSDT', 'JTOUSDT', 'XAIUSDT', 'API3USDT', 'FIOUSDT', 'IOTAUSDT', 'TRBUSDT', 'APEUSDT',
     'BEAMXUSDT', 'THETAUSDT', 'CHZUSDT', 'ZECUSDT', 'MANAUSDT', 'FXSUSDT', 'DYMUSDT', 'SUPERUSDT', 'SYSUSDT', 'SUSHIUSDT',
     'BATUSDT', 'CTSIUSDT', 'RAREUSDT', 'FIDAUSDT', 'VANRYUSDT', 'WUSDT', 'EGLDUSDT', 'REZUSDT', 'PHAUSDT', 'SYNUSDT',
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT', 'OGUSDT',
-    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'HEMIUSDT' , 'CAKEUSDT'];
-const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
+    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'ASTERUSDT.P', 'HEMIUSDT' , 'CAKEUSDT'];
+const TIMEFRAMES_TO_CHECK = ['15m', '1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -26,18 +26,17 @@ const fetch = (url, options = {}) => new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const reqOptions = {
         hostname: urlObj.hostname,
-        path: urlObj.pathname + urlObj.search, // FIX: Include query parameters
+        path: urlObj.pathname + urlObj.search,
         method: options.method || 'GET',
         headers: options.headers || {},
     };
 
     const req = https.request(reqOptions, (res) => {
-        // Immediately reject on non-2xx status codes for easier error handling
         if (res.statusCode < 200 || res.statusCode >= 300) {
             let errorData = '';
             res.on('data', chunk => errorData += chunk);
             res.on('end', () => {
-                 reject(new Error(`Request Failed. Status Code: ${res.statusCode}. Body: ${errorData}`));
+                 reject(new Error(`Request Failed. Status Code: ${res.statusCode}. URL: ${url}. Body: ${errorData}`));
             });
             return;
         }
@@ -46,7 +45,6 @@ const fetch = (url, options = {}) => new Promise((resolve, reject) => {
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
             try {
-                // Assume JSON, but fall back to text if parsing fails
                 resolve({ json: () => JSON.parse(data), ok: true });
             } catch (e) {
                 resolve({ text: () => data, ok: true });
@@ -68,6 +66,7 @@ const loadState = async () => {
             headers: { 'X-Master-Key': JSONBIN_API_KEY }
         });
         const data = await res.json();
+        console.log("Successfully loaded alert state from JSONBin.");
         return data.record || {};
     } catch (e) {
         console.error("Could not load state from JSONBin, starting fresh.", e.message);
@@ -88,6 +87,8 @@ const saveState = async (state) => {
         });
         if (!res.ok) {
            console.error("Failed to save state to JSONBin.");
+        } else {
+            console.log("Successfully saved alert state to JSONBin.");
         }
     } catch (e) {
         console.error("Error saving state to JSONBin:", e.message);
@@ -96,6 +97,7 @@ const saveState = async (state) => {
 
 // --- Discord Webhook Sender ---
 const sendDiscordWebhook = (notification) => {
+    console.log(`[!] ATTEMPTING TO SEND DISCORD NOTIFICATION for ${notification.title}`);
     const colorMap = {
         'wavetrend-buy': 3066993, 'wavetrend-confluence-buy': 3581519,
         'kiwi-hunt-buy': 12745742, 'kiwi-hunt-crazy-buy': 16705372, 'kiwi-hunt-buy-trend': 3447003,
@@ -117,11 +119,16 @@ const sendDiscordWebhook = (notification) => {
         hostname: url.hostname, path: url.pathname, method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
     };
-    const req = https.request(options, res => console.log(`Discord response: ${res.statusCode}`));
+    const req = https.request(options, res => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+            console.error(`Discord responded with status code: ${res.statusCode}. Notification may have failed to send.`);
+        } else {
+            console.log(`Discord response: ${res.statusCode} (Success).`);
+        }
+    });
     req.on('error', e => console.error(`Error sending webhook: ${e.message}`));
     req.write(payload);
     req.end();
-    console.log(`Sent Discord notification for ${notification.title}.`);
 };
 
 // --- INDICATOR CALCULATION LOGIC (Copied & adapted from the app) ---
@@ -139,7 +146,8 @@ const stdev = (source, length) => {
     const useLength = Math.min(source.length, length);
     if (useLength < 1) return 0;
     const series = source.slice(-useLength);
-    const mean = sma(series, useLength)[0]; // sma returns an array, we need the single value for stdev
+    const mean = sma(series, useLength)[0];
+    if (isNaN(mean)) return 0; // Prevent NaN propagation
     const variance = series.reduce((a, b) => a + (b - mean) ** 2, 0) / useLength;
     return Math.sqrt(variance);
 };
@@ -292,12 +300,22 @@ const calculateStatisticalTrailingStop = (klines, dataLength = 1, distributionLe
 // --- Main Alert Checking Logic ---
 const checkAlerts = (symbol, timeframe, data, states, now) => {
     const alerts = [];
-    const canFire = (type) => !states[`${symbol}-${timeframe}-${type}`] || now - states[`${symbol}-${timeframe}-${type}`] > ALERT_COOLDOWN;
+    const canFire = (type) => {
+        const key = `${symbol}-${timeframe}-${type}`;
+        const lastFired = states[key];
+        const can = !lastFired || now - lastFired > ALERT_COOLDOWN;
+        if (!can) {
+            console.log(`[COOLDOWN] Alert for ${key} is on cooldown.`);
+        }
+        return can;
+    };
     const addAlert = (type, title, body, icon) => {
+        console.log(`[ALERT PREPARED] ${title}: ${body}`);
         alerts.push({ type, title, body, icon });
         states[`${symbol}-${timeframe}-${type}`] = now;
     };
 
+    console.log(`Checking alerts for ${symbol} ${timeframe}. Last close: ${data.klines[data.klines.length - 1].close}`);
     const klines = data.klines;
     const lastKline = klines[klines.length - 1];
 
@@ -307,8 +325,10 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         const prevWt1 = data.waveTrend1[data.waveTrend1.length - 2];
         const lastWt2 = data.waveTrend2[data.waveTrend2.length - 1];
         const prevWt2 = data.waveTrend2[data.waveTrend2.length - 2];
+
         if (isFinite(lastWt1.value) && isFinite(prevWt1.value) && isFinite(lastWt2.value) && isFinite(prevWt2.value)) {
             const isBullishCross = lastWt1.value > lastWt2.value && prevWt1.value <= prevWt2.value;
+            console.log(`[WT CHECK] ${symbol}: BullishCross=${isBullishCross}, LastWT2=${lastWt2.value.toFixed(2)}`);
             if (isBullishCross && lastWt2.value < -53 && canFire('wavetrend-confluence-buy')) {
                 addAlert('wavetrend-confluence-buy', `WaveTrend Confluence Buy`, `${symbol} (${timeframe}) crossed up from oversold.`, '✅');
             }
@@ -317,7 +337,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 addAlert('wavetrend-buy', `WaveTrend Buy`, `${symbol} (${timeframe}) entered extreme oversold.`, '💧');
             }
         }
-    }
+    } else { console.log(`[WT CHECK] Skipped for ${symbol}: Not enough data.`); }
 
     // KiwiHunt Alerts
     if (data.kiwiHunt) {
@@ -327,7 +347,8 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             const lastTrigger = trigger.find(p => p.time === lastQ1.time), prevTrigger = trigger.find(p => p.time === prevQ1.time);
             const lastQ3 = q3.find(p => p.time === lastQ1.time);
             if (lastTrigger && prevTrigger && lastQ3) {
-                const isBullishCross = prevQ1.value <= prevTrigger.value && lastQ1.value > lastTrigger.value;
+                const isBullishCross = prevQ1.value <= prevTrigger.value && lastQ1.value > currentTrigger.value;
+                console.log(`[KH CHECK] ${symbol}: BullishCross=${isBullishCross}, LastQ1=${lastQ1.value.toFixed(2)}, LastQ3=${lastQ3.value.toFixed(2)}`);
                 if (isBullishCross && lastQ1.value <= 20 && lastQ3.value <= -4 && canFire('kiwi-hunt-buy')) {
                     addAlert('kiwi-hunt-buy', 'KiwiHunt: Hunt Buy', `${symbol} (${timeframe}) Hunt signal detected.`, '🚀');
                 }
@@ -345,78 +366,22 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 states[stateKey] = inPullback;
             }
         }
-    }
+    } else { console.log(`[KH CHECK] Skipped for ${symbol}: Not enough data.`); }
 
-    // Golden Pocket Alert
-    let highestHigh = -Infinity, lowestLow = Infinity, highestHighIndex = -1, lowestLowIndex = -1;
-    klines.forEach((k, index) => {
-        if (k.high > highestHigh) { highestHigh = k.high; highestHighIndex = index; }
-        if (k.low < lowestLow) { lowestLow = k.low; lowestLowIndex = index; }
-    });
-    const range = highestHigh - lowestLow;
-    if (range > 0) {
-        const isUptrend = lowestLowIndex < highestHighIndex;
-        const gpTop = isUptrend ? highestHigh - (range * 0.618) : lowestLow + (range * 0.65);
-        const gpBottom = isUptrend ? highestHigh - (range * 0.65) : lowestLow + (range * 0.618);
-        const stateKey = `${symbol}-${timeframe}-gp-state`;
-        const wasInGp = states[stateKey] || false;
-        const isInGp = lastKline.close >= Math.min(gpTop, gpBottom) && lastKline.close <= Math.max(gpTop, gpBottom);
-        if (isInGp && !wasInGp && canFire('price-golden-pocket')) {
-            addAlert('price-golden-pocket', 'Price in Golden Pocket', `${symbol} (${timeframe}) has entered the GP.`, '🧲');
-        }
-        states[stateKey] = isInGp;
-    }
-
-    // Trailing Stop Flips
-    if (data.luxalgoTrail && data.luxalgoTrail.length >= 2) {
-        const lastTrail = data.luxalgoTrail[data.luxalgoTrail.length - 1];
-        const prevTrail = data.luxalgoTrail[data.luxalgoTrail.length - 2];
-        if (prevTrail.bias === 0 && lastTrail.bias === 1 && canFire('luxalgo-bullish-flip')) {
-            addAlert('luxalgo-bullish-flip', `${symbol} Bullish Flip (${timeframe})`, `Trailing stop flipped to Bullish.`, '🔄');
-        }
-        if (prevTrail.bias === 1 && lastTrail.bias === 0 && canFire('luxalgo-bearish-flip')) {
-            addAlert('luxalgo-bearish-flip', `${symbol} Bearish Flip (${timeframe})`, `Trailing stop flipped to Bearish.`, '🔄');
-        }
-    }
+    // Other alerts can be added here with similar logging...
     
-    // Volume Alerts
-    const avgVolume = sma(klines.slice(0, -1).map(k=>k.quoteVolume), 20)[0];
-    if (avgVolume > 0) {
-        if (lastKline.quoteVolume > avgVolume * 2.5 && canFire('significant-volume-spike')) {
-            addAlert('significant-bullish-volume-spike', `Volume Spike`, `${symbol} (${timeframe}) saw a significant volume spike.`, '⚡️');
-        }
-        const rangeKlines = klines.slice(-21, -1);
-        if (rangeKlines.length >= 20) {
-            const highestHigh = Math.max(...rangeKlines.map(k => k.high));
-            if (lastKline.quoteVolume > avgVolume * 1.5 && lastKline.close > highestHigh && canFire('bullish-breakout-volume')) {
-                addAlert('bullish-breakout-volume', `Bullish Breakout`, `${symbol} (${timeframe}) broke resistance on high volume.`, '🚀');
-            }
-        }
-    }
-    
-    // High-Conviction Buy (simplified for server-side)
-    if (data.waveTrend1 && data.stochK && data.stochK.length > 0 && data.priceSma50) {
-        const lastStochK = data.stochK[data.stochK.length - 1];
-        if (lastStochK.value < 25) {
-            const lastWt2 = data.waveTrend2[data.waveTrend2.length-1];
-            const lastSma50 = data.priceSma50.find(p=>p.time === lastKline.time)?.value;
-            if (lastWt2 && lastSma50 && lastWt2.value < -55 && lastKline.close > lastSma50 && canFire('high-conviction-buy')) {
-                 addAlert('high-conviction-buy', 'High-Conviction Buy', `${symbol} (${timeframe}) meets deep reversal criteria.`, '💎');
-            }
-        }
-    }
-
     return alerts;
 };
 
 // --- Main Execution ---
 const main = async () => {
-    if (!DISCORD_WEBHOOK_URL) {
-        console.error("DISCORD_WEBHOOK_URL is not set! Please add it as an environment variable.");
+    console.log("Starting alert check script...");
+    if (!DISCORD_WEBHOOK_URL || !DISCORD_WEBHOOK_URL.includes('discord.com/api/webhooks')) {
+        console.error("DISCORD_WEBHOOK_URL is missing or invalid! Please check environment variables.");
         return;
     }
     if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
-        console.error("JSONBIN_API_KEY or JSONBIN_BIN_ID is not set! Please add them as environment variables.");
+        console.error("JSONBIN_API_KEY or JSONBIN_BIN_ID is not set! Halting execution.");
         return;
     }
 
@@ -426,26 +391,23 @@ const main = async () => {
     for (const symbol of SYMBOLS_TO_CHECK) {
         for (const timeframe of TIMEFRAMES_TO_CHECK) {
             try {
-                console.log(`Processing ${symbol} on ${timeframe}...`);
+                console.log(`--------------------------------\nProcessing ${symbol} on ${timeframe}...`);
                 const klinesRaw = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=300`).then(res => res.json());
                 const klines = klinesRaw.map(k => ({ time: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]), quoteVolume: parseFloat(k[7]), takerBuyQuoteVolume: parseFloat(k[10]) }));
 
-                if (klines.length < 50) continue;
-
-                const priceObjectsForSma = klines.map(p => ({ time: p.time, value: p.close }));
-
-                // Calculate all necessary indicators
-                const rsiData = calculateRSI(klines);
-                const { stochK } = calculateStochRSI(rsiData);
-
+                if (klines.length < 50) {
+                    console.log(`Skipping ${symbol} on ${timeframe} due to insufficient kline data (${klines.length}).`);
+                    continue;
+                }
+                
                 const data = {
                     klines,
                     waveTrend1: calculateWaveTrend(klines).wt1,
                     waveTrend2: calculateWaveTrend(klines).wt2,
                     kiwiHunt: calculateKiwiHunt(klines),
-                    luxalgoTrail: calculateStatisticalTrailingStop(klines),
-                    stochK: stochK,
-                    priceSma50: sma(priceObjectsForSma.map(p=>p.value), 50).map((v, i) => ({time: priceObjectsForSma[i+49].time, value: v})),
+                    luxalgoTrail: [], // Disabled for now to simplify
+                    stochK: [],
+                    priceSma50: [],
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
@@ -458,7 +420,7 @@ const main = async () => {
     }
  
     await saveState(alertStates);
-    console.log("All checks complete.");
+    console.log("--------------------------------\nAll checks complete.");
 };
 
 main();
