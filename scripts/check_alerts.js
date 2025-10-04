@@ -440,13 +440,13 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 
         if (prevTrail.bias === BEARISH && lastTrail.bias === BULLISH && canFire('luxalgo-bullish-flip')) {
             addAlert('luxalgo-bullish-flip',
-                `${symbol} Bullish Flip (${timeframe})`,
+                `${symbol} Bot Buys (${timeframe})`,
                 `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`);
         }
 
         if (prevTrail.bias === BULLISH && lastTrail.bias === BEARISH && canFire('luxalgo-bearish-flip')) {
              addAlert('luxalgo-bearish-flip',
-                `${symbol} Bearish Flip (${timeframe})`,
+                `${symbol} Bot Sells (${timeframe})`,
                 `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`);
         }
     }
@@ -542,7 +542,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             if (isBullishCross && isOversold && canFire('wavetrend-confluence-buy')) {
                 addAlert(
                     'wavetrend-confluence-buy',
-                    `${symbol} WaveTrend Confluence Buy (${timeframe})`,
+                    `${symbol} Cipher Buy Signal (${timeframe})`,
                     `Bullish cross detected while WaveTrend is oversold (${lastWt2.toFixed(2)}).`
                 );
             }
