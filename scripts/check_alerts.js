@@ -100,10 +100,21 @@ const sendDiscordWebhook = (notification) => {
         timestamp: new Date().toISOString(),
     };
     const payload = JSON.stringify({ embeds: [embed] });
+
+    // Use Buffer.byteLength for accurate Content-Length with multi-byte characters (like emojis)
+    const payloadByteLength = Buffer.byteLength(payload, 'utf8');
+
+    console.log('[DEBUG] Payload being sent to Discord:', payload);
+
     const url = new URL(DISCORD_WEBHOOK_URL);
     const options = {
-        hostname: url.hostname, path: url.pathname, method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+        hostname: url.hostname,
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': payloadByteLength
+        }
     };
     const req = https.request(options, res => {
         let responseBody = '';
