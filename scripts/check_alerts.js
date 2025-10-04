@@ -493,13 +493,13 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 
         if (prevTrail.bias === BEARISH && lastTrail.bias === BULLISH && canFire('luxalgo-bullish-flip')) {
             addAlert('luxalgo-bullish-flip',
-                `${symbol} Buy Signal (${timeframe})`,
+                `${symbol} Bot Buys (${timeframe})`,
                 `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`);
         }
 
         if (prevTrail.bias === BULLISH && lastTrail.bias === BEARISH && canFire('luxalgo-bearish-flip')) {
              addAlert('luxalgo-bearish-flip',
-                `${symbol} Sell Signal (${timeframe})`,
+                `${symbol} Bot Sells (${timeframe})`,
                 `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`);
         }
     }
@@ -543,7 +543,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             if (prevRsi <= prevSma && lastRsi > lastSma && canFire('rsi-sma-bullish-cross')) {
                 addAlert(
                     'rsi-sma-bullish-cross',
-                    `${symbol} RSI/SMA Bullish Cross (${timeframe})`,
+                    `${symbol} RSI Bullish Cross (${timeframe})`,
                     `RSI (14) has crossed above its SMA (14). RSI is now ${lastRsi.toFixed(2)}.`
                 );
             }
@@ -551,7 +551,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             if (prevRsi >= prevSma && lastRsi < lastSma && canFire('rsi-sma-bearish-cross')) {
                 addAlert(
                     'rsi-sma-bearish-cross',
-                    `${symbol} RSI/SMA Bearish Cross (${timeframe})`,
+                    `${symbol} RSI Bearish Cross (${timeframe})`,
                     `RSI (14) has crossed below its SMA (14). RSI is now ${lastRsi.toFixed(2)}.`
                 );
             }
@@ -565,7 +565,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         if (bullishDivergence && canFire(`bullish-divergence-${bullishDivergence.pivotTime}`)) {
             addAlert(
                 'bullish-divergence',
-                `${symbol} Bullish Divergence (${timeframe})`,
+                `${symbol} BULL DIV (${timeframe})`,
                 `A bullish divergence has been detected. RSI is at ${bullishDivergence.rsiValue.toFixed(2)}.`
             );
         }
@@ -574,7 +574,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         if (bearishDivergence && canFire(`bearish-divergence-${bearishDivergence.pivotTime}`)) {
             addAlert(
                 'bearish-divergence',
-                `${symbol} Bearish Divergence (${timeframe})`,
+                `${symbol} BEAR DIV (${timeframe})`,
                 `A bearish divergence has been detected. RSI is at ${bearishDivergence.rsiValue.toFixed(2)}.`
             );
         }
@@ -658,7 +658,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                     if (scenarioMet && canFire('high-conviction-buy')) {
                         addAlert(
                             'high-conviction-buy',
-                            `${symbol} High-Conviction Buy (${timeframe})`,
+                            `${symbol} CONVICTION BUY (${timeframe})`,
                             `Multiple bullish confluence factors detected.`
                         );
                     }
