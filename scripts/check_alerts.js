@@ -5,7 +5,8 @@ import https from 'https';
 import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
-const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT', 'SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT','PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
+const SYMBOLS_TO_CHECK = [
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT', 'SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT', 'PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
     'BCHUSDT', 'ETCUSDT', 'VIRTUALUSDT', 'SEIUSDT', 'DOTUSDT', 'UNIUSDT', 'NEARUSDT', 'TAOUSDT', 'HBARUSDT',
     'TIAUSDT', 'ETHFIUSDT', 'FETUSDT', 'APTUSDT', 'LDOUSDT', 'TONUSDT', 'RAYUSDT', 'PENDLEUSDT', 'DIAUSDT',
     'BIOUSDT', 'RENDERUSDT', 'CGPTUSDT', 'CFXUSDT', 'JUPUSDT', 'BERAUSDT', 'GALAUSDT', 'GRTUSDT', 'SFPUSDT','LPTUSDT',
@@ -15,8 +16,9 @@ const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT'
     'BEAMXUSDT', 'THETAUSDT', 'CHZUSDT', 'ZECUSDT', 'MANAUSDT', 'FXSUSDT', 'DYMUSDT', 'SUPERUSDT', 'SYSUSDT', 'SUSHIUSDT',
     'BATUSDT', 'CTSIUSDT', 'RAREUSDT', 'FIDAUSDT', 'VANRYUSDT', 'WUSDT', 'EGLDUSDT', 'REZUSDT', 'PHAUSDT', 'SYNUSDT',
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT','OGUSDT',
-    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'HEMIUSDT' , 'CAKEUSDT'];
-const TIMEFRAMES_TO_CHECK = ['1h', '4h', '1d']; // Trailing Stop alerts are best on HTF
+    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'CAKEUSDT'
+];
+const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -94,9 +96,11 @@ const sendDiscordWebhook = (notification) => {
         'luxalgo-bearish-flip': 15158332,     // Red
         'rsi-extreme-overbought': 15158332,  // Red
         'rsi-extreme-oversold': 3066993,      // Green
+        'rsi-sma-bullish-cross': 3066993,     // Green
+        'rsi-sma-bearish-cross': 15158332,    // Red
     };
     const embed = {
-        title: `${notification.icon} ${notification.title}`,
+        title: notification.title,
         description: notification.body,
         color: colorMap[notification.type] || 10070709,
         timestamp: new Date().toISOString(),
@@ -160,15 +164,29 @@ const calculateRSI = (klines, length = 14) => {
         avgGain = (avgGain * (length - 1) + gains[i]) / length;
         avgLoss = (avgLoss * (length - 1) + losses[i]) / length;
     }
-    
-    // The first `length` gains/losses are used for the seed average, so the RSI values
-    // correspond to the klines starting from `length + 1`. We need to pad the beginning
-    // of the array so the indices match the klines array.
+
     const padding = Array(klines.length - rsiValues.length).fill(null);
     return [...padding, ...rsiValues];
 };
 
-const sma = (source, length) => {
+const calculateSMA = (data, length) => {
+    if (data.length < length) return [];
+    const smaValues = [];
+    for (let i = length - 1; i < data.length; i++) {
+        const window = data.slice(i - length + 1, i + 1);
+        const validValues = window.filter(v => v !== null);
+        if (validValues.length === 0) {
+            smaValues.push(null);
+            continue;
+        }
+        const sum = validValues.reduce((acc, point) => acc + point, 0);
+        smaValues.push(sum / validValues.length);
+    }
+    const padding = Array(data.length - smaValues.length).fill(null);
+    return [...padding, ...smaValues];
+};
+
+const sma_legacy = (source, length) => {
     const useLength = Math.min(source.length, length);
     if (useLength === 0) return [0];
     const smaValues = [];
@@ -184,7 +202,7 @@ const stdev = (source, length) => {
     const useLength = Math.min(source.length, length);
     if (useLength < 1) return 0;
     const series = source.slice(-useLength);
-    const mean = sma(series, useLength)[0];
+    const mean = sma_legacy(series, useLength)[0];
     if (isNaN(mean)) return 0;
     const variance = series.reduce((a, b) => a + (b - mean) ** 2, 0) / useLength;
     return Math.sqrt(variance);
@@ -216,7 +234,7 @@ const calculateStatisticalTrailingStop = (klines, dataLength = 1, distributionLe
         const logTrWindow = logTrueRanges.slice(i - distributionLength + 1, i + 1).filter(v => v !== null);
         let delta;
         if (logTrWindow.length > 1) {
-            const avg = sma(logTrWindow, distributionLength)[0];
+            const avg = sma_legacy(logTrWindow, distributionLength)[0];
             const std = stdev(logTrWindow, distributionLength);
             delta = Math.exp(avg + 2 * std);
         } else if (currentTrail) {
@@ -253,9 +271,9 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         if (!can) console.log(`[COOLDOWN] Alert for ${key} is on cooldown.`);
         return can;
     };
-    const addAlert = (type, title, body, icon) => {
+    const addAlert = (type, title, body) => {
         console.log(`[ALERT PREPARED] ${title}: ${body}`);
-        alerts.push({ type, title, body, icon });
+        alerts.push({ type, title, body });
         states[`${symbol}-${timeframe}-${type}`] = now;
     };
 
@@ -272,15 +290,13 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         if (prevTrail.bias === BEARISH && lastTrail.bias === BULLISH && canFire('luxalgo-bullish-flip')) {
             addAlert('luxalgo-bullish-flip',
                 `${symbol} Bullish Flip (${timeframe})`,
-                `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`,
-                '🔄');
+                `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`);
         }
 
         if (prevTrail.bias === BULLISH && lastTrail.bias === BEARISH && canFire('luxalgo-bearish-flip')) {
              addAlert('luxalgo-bearish-flip',
                 `${symbol} Bearish Flip (${timeframe})`,
-                `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`,
-                '🔄');
+                `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`);
         }
     }
     
@@ -296,8 +312,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 addAlert(
                     'rsi-extreme-overbought',
                     `${symbol} Extreme Overbought (${timeframe})`,
-                    `RSI is now ${lastRsi.toFixed(2)}, crossing above 75.`,
-                    '📈'
+                    `RSI is now ${lastRsi.toFixed(2)}, crossing above 75.`
                 );
             }
             // Extreme Oversold
@@ -305,8 +320,35 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 addAlert(
                     'rsi-extreme-oversold',
                     `${symbol} Extreme Oversold (${timeframe})`,
-                    `RSI is now ${lastRsi.toFixed(2)}, crossing below 25.`,
-                    '📉'
+                    `RSI is now ${lastRsi.toFixed(2)}, crossing below 25.`
+                );
+            }
+        }
+    }
+
+    // --- RSI/SMA CROSS ALERTS ---
+    const isRsiSmaCrossEnabled = process.env.ALERT_RSI_SMA_CROSS_ENABLED === 'true';
+    if (isRsiSmaCrossEnabled && data.rsi && data.rsi.length >= 2 && data.sma && data.sma.length >= 2) {
+        const lastRsi = data.rsi[data.rsi.length - 1];
+        const prevRsi = data.rsi[data.rsi.length - 2];
+        const lastSma = data.sma[data.sma.length - 1];
+        const prevSma = data.sma[data.sma.length - 2];
+        
+        if (lastRsi !== null && prevRsi !== null && lastSma !== null && prevSma !== null) {
+            // Bullish Cross
+            if (prevRsi <= prevSma && lastRsi > lastSma && canFire('rsi-sma-bullish-cross')) {
+                addAlert(
+                    'rsi-sma-bullish-cross',
+                    `${symbol} RSI/SMA Bullish Cross (${timeframe})`,
+                    `RSI (14) has crossed above its SMA (14). RSI is now ${lastRsi.toFixed(2)}.`
+                );
+            }
+            // Bearish Cross
+            if (prevRsi >= prevSma && lastRsi < lastSma && canFire('rsi-sma-bearish-cross')) {
+                addAlert(
+                    'rsi-sma-bearish-cross',
+                    `${symbol} RSI/SMA Bearish Cross (${timeframe})`,
+                    `RSI (14) has crossed below its SMA (14). RSI is now ${lastRsi.toFixed(2)}.`
                 );
             }
         }
@@ -342,10 +384,12 @@ const main = async () => {
                     continue;
                 }
                 
+                const rsiData = calculateRSI(klines);
                 const data = {
                     klines,
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
-                    rsi: calculateRSI(klines),
+                    rsi: rsiData,
+                    sma: calculateSMA(rsiData, 14),
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
