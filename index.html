@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3csvg width='256' height='256' viewBox='0 0 256 256' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='256' height='256' rx='60' fill='%23181c24'/%3e%3cpath d='M56 184L93.3333 136L128 156L165.333 92L200 116' stroke='%2329ffb8' stroke-width='16' stroke-linecap='round' stroke-linejoin='round'/%3e%3crect x='56' y='72' width='144' height='12' rx='6' fill='%234a5568'/%3e%3crect x='56' y='52' width='80' height='12' rx='6' fill='%234a5568' fill-opacity='0.6'/%3e%3c/svg%3e" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Crypto RSI Scanner</title>
+    <meta name="description" content="An advanced crypto scanner and automated paper trading bot. Monitor real-time RSI, Stochastic RSI, and divergences across hundreds of pairs. Features a powerful charting modal with Volume Profile, automated trading based on RSI crosses and divergences, and a multi-timeframe background scanner to catch every opportunity." />
+    <meta name="theme-color" content="#181c24" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://crysi.example.com/" />
+    <meta property="og:title" content="Crypto RSI Scanner" />
+    <meta property="og:description" content="An advanced crypto scanner and automated paper trading bot. Monitor real-time RSI, Stochastic RSI, and divergences across hundreds of pairs. Features a powerful charting modal with Volume Profile, automated trading based on RSI crosses and divergences, and a multi-timeframe background scanner to catch every opportunity." />
+    <meta property="og:image" content="data:image/svg+xml,%3csvg width='256' height='256' viewBox='0 0 256 256' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='256' height='256' rx='60' fill='%23181c24'/%3e%3cpath d='M56 184L93.3333 136L128 156L165.333 92L200 116' stroke='%2329ffb8' stroke-width='16' stroke-linecap='round' stroke-linejoin='round'/%3e%3crect x='56' y='72' width='144' height='12' rx='6' fill='%234a5568'/%3e%3crect x='56' y='52' width='80' height='12' rx='6' fill='%234a5568' fill-opacity='0.6'/%3e%3c/svg%3e" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://crysi.example.com/" />
+    <meta property="twitter:title" content="Crypto RSI Scanner" />
+    <meta property="twitter:description" content="An advanced crypto scanner and automated paper trading bot. Monitor real-time RSI, Stochastic RSI, and divergences across hundreds of pairs. Features a powerful charting modal with Volume Profile, automated trading based on RSI crosses and divergences, and a multi-timeframe background scanner to catch every opportunity." />
+    <meta property="twitter:image" content="data:image/svg+xml,%3csvg width='256' height='256' viewBox='0 0 256 256' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='256' height='256' rx='60' fill='%23181c24'/%3e%3cpath d='M56 184L93.3333 136L128 156L165.333 92L200 116' stroke='%2329ffb8' stroke-width='16' stroke-linecap='round' stroke-linejoin='round'/%3e%3crect x='56' y='72' width='144' height='12' rx='6' fill='%234a5568'/%3e%3crect x='56' y='52' width='80' height='12' rx='6' fill='%234a5568' fill-opacity='0.6'/%3e%3c/svg%3e" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              'primary': '#29ffb8',
+              'primary-light': '#00a878',
+              // Dark Theme
+              'dark-bg': '#181c24',
+              'dark-card': '#232a36',
+              'dark-border': '#313a4a',
+              'light-text': '#e5e9f2',
+              'medium-text': '#b0b8c9',
+              // Light Theme
+              'light-bg': '#f0f2f5',
+              'light-card': '#ffffff',
+              'light-border': '#e5e9f2',
+              'dark-text': '#181c24',
+              'medium-text-light': '#5a647e',
+            },
+            animation: {
+                'dropdown-in': 'dropdown-fade-in-scale-up 0.2s ease-out',
+            },
+            keyframes: {
+                'dropdown-fade-in-scale-up': {
+                    '0%': { opacity: '0', transform: 'scale(0.95) translateY(-10px)' },
+                    '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+                },
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      /* === New Skeleton Loader Styles === */
+       @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+
+      @keyframes skeleton-fade-in {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* === Creative Splash Screen === */
+      .splash-screen {
+        position: fixed;
+        inset: 0;
+        background-color: #181c24; /* dark-bg */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        animation: splashFadeOut 0.5s ease-in-out 4.5s forwards;
+        overflow: hidden; /* Important for scanner effect */
+      }
+
+      /* Faint static grid background */
+      .splash-screen::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image:
+              linear-gradient(rgba(41, 255, 184, 0.05) 1px, transparent 1px),
+              linear-gradient(to right, rgba(41, 255, 184, 0.05) 1px, transparent 1px);
+          background-size: 2rem 2rem;
+          opacity: 0.5;
+      }
+
+      /* Scanner line */
+      .splash-screen::after {
+          content: '';
+          position: absolute;
+          top: -100%;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(to bottom, transparent 0%, rgba(41, 255, 184, 0.2) 50%, transparent 100%);
+          animation: scan 3s ease-in-out 0.5s forwards;
+      }
+
+      @keyframes scan {
+          0% { top: -100%; }
+          100% { top: 100%; }
+      }
+
+      .splash-content {
+        position: relative; /* Ensure content is above pseudo-elements */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .splash-logo {
+        width: 250px;
+        height: auto;
+      }
+
+      .splash-logo path {
+        fill: none;
+        stroke: #29ffb8; /* primary */
+        stroke-width: 4;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 600;
+        stroke-dashoffset: 600;
+        animation: drawPath 3s ease-in-out 0.5s forwards;
+        filter: drop-shadow(0 0 5px #29ffb8); /* Add glow */
+      }
+
+      .splash-title {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #e5e9f2; /* light-text */
+        letter-spacing: 0.1em;
+        opacity: 0;
+        animation: fadeInAndPulse 2.5s ease-in 2s forwards;
+        text-shadow: 0 0 8px rgba(41, 255, 184, 0.5); /* Add glow */
+      }
+
+      @keyframes drawPath {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+
+      @keyframes fadeInAndPulse {
+        0% {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1.02);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @keyframes splashFadeOut {
+        to {
+          opacity: 0;
+          visibility: hidden;
+        }
+      }
+      
+      /* === Animated header === */
+
+      /* New Header Load Animations */
+      @keyframes header-slide-down-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(-50px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes element-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Apply animations on load */
+      .header-on-load {
+        animation: header-slide-down-fade-in 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s backwards;
+      }
+
+      .header-on-load .header-title-group {
+        animation: element-fade-in 0.5s ease-out 0.4s backwards;
+      }
+
+      .header-on-load .header-controls-group > * {
+        animation: element-fade-in 0.5s ease-out backwards;
+      }
+
+      .header-on-load .header-controls-group > *:nth-child(1) { animation-delay: 0.5s; }
+      .header-on-load .header-controls-group > *:nth-child(2) { animation-delay: 0.6s; }
+      .header-on-load .header-controls-group > *:nth-child(3) { animation-delay: 0.7s; }
+      .header-on-load .header-controls-group > *:nth-child(4) { animation-delay: 0.8s; }
+
+
+      /* Aurora Background */
+      .aurora-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 0; /* Behind the content */
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .aurora-shape {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(120px);
+        will-change: transform, opacity;
+      }
+
+      /* Light Theme Colors */
+      :root {
+        --aurora-color-1: #84fab0; /* Light, fresh green */
+        --aurora-color-2: #8fd3f4; /* Airy, light blue */
+        --aurora-color-3: #fbc2eb; /* Soft, warm pink */
+        --scrollbar-track-color: #f0f2f5; /* light-bg */
+        --scrollbar-thumb-color: #00a878; /* primary-light */
+        --scrollbar-thumb-hover-color: #0077b6;
+      }
+
+      /* Dark Theme Colors */
+      .dark {
+        --aurora-color-1: #29ffb8;
+        --aurora-color-2: #4ec3fa;
+        --aurora-color-3: #313a4a;
+        --scrollbar-track-color: #181c24; /* dark-bg */
+        --scrollbar-thumb-color: #29ffb8; /* primary */
+        --scrollbar-thumb-hover-color: #4ec3fa;
+      }
+
+      .aurora-shape1 {
+        width: 300px;
+        height: 300px;
+        background: var(--aurora-color-1);
+        top: -100px;
+        left: -100px;
+        opacity: 0.3;
+      }
+
+      .aurora-shape2 {
+        width: 350px;
+        height: 350px;
+        background: var(--aurora-color-2);
+        bottom: -150px;
+        right: -150px;
+        opacity: 0.25;
+      }
+
+      .aurora-shape3 {
+        width: 250px;
+        height: 250px;
+        background: var(--aurora-color-3);
+        bottom: 50px;
+        left: 20%;
+        opacity: 0.2;
+      }
+      
+      /* === Interactive Header Gradient === */
+      .interactive-header-container::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit; /* Match parent's border-radius */
+        background: radial-gradient(350px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(41, 255, 184, 0.2), transparent 80%);
+        z-index: 0; /* Position it behind the header content */
+        pointer-events: none; /* Allows clicks to pass through to elements underneath */
+        transition: opacity 0.3s ease-in-out;
+        /* Default state (light theme) is visible */
+        opacity: 1;
+      }
+
+      /* In dark mode, the effect is hidden by default... */
+      .dark .interactive-header-container::before {
+        opacity: 0;
+      }
+
+      /* ...and appears on hover */
+      .dark .interactive-header-container:hover::before {
+        opacity: 1;
+      }
+      
+      /* === Custom Pulse for Extreme Heatmap Cells === */
+      @keyframes pulse-fast {
+        50% {
+          opacity: .8;
+        }
+      }
+      .animate-pulse-fast {
+        animation: pulse-fast 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      /* === Custom Pulse for Notification Dot === */
+      @keyframes pulse-dot {
+        0%, 100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.4);
+          opacity: .7;
+        }
+      }
+      .animate-pulse-dot {
+        animation: pulse-dot 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      /* === Favorite Animation === */
+      @keyframes star-pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.6); }
+          100% { transform: scale(1); }
+      }
+      .animate-star-pop {
+          animation: star-pop 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+          transform-origin: center;
+      }
+
+      .particle-burst {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+      }
+      .particle-burst > .particle {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          color: #facc15; /* yellow-400 */
+          opacity: 0;
+          will-change: transform, opacity;
+      }
+      .particle-burst > .particle.animate {
+          animation: burst 0.6s ease-out forwards;
+      }
+
+      @keyframes burst {
+          0% {
+              transform: translate(-50%, -50%) scale(0.5);
+              opacity: 1;
+          }
+          100% {
+              transform: translate(var(--tx), var(--ty)) scale(0);
+              opacity: 0;
+          }
+      }
+
+      /* === Global Themed Scrollbar === */
+      /* For Firefox */
+      html {
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-thumb-color) var(--scrollbar-track-color);
+      }
+
+      /* For Webkit browsers (Chrome, Safari, Edge) */
+      ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--scrollbar-track-color);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background-color: var(--scrollbar-thumb-color);
+        border-radius: 10px;
+        border: 3px solid var(--scrollbar-track-color);
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--scrollbar-thumb-hover-color);
+      }
+
+      ::-webkit-scrollbar-corner {
+        background: transparent;
+      }
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.1.2",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "html-to-image": "https://aistudiocdn.com/html-to-image@^1.11.13"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,1454 @@
+
+
+
+import React from 'react';
+import type { Notification, TradeReason } from '../types';
+import { formatTradeReasonText } from '../constants';
+
+interface NotificationItemProps {
+    notification: Notification;
+}
+
+
+const NotificationItem: React.FC<NotificationItemProps> = ({ notification }) => {
+    let icon, title, body;
+
+    switch (notification.type) {
+        case 'overbought':
+            icon = 'fa-arrow-trend-up text-red-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Overbought at ${notification.rsi?.toFixed(2)}`;
+            break;
+        case 'oversold':
+            icon = 'fa-arrow-trend-down text-green-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Oversold at ${notification.rsi?.toFixed(2)}`;
+            break;
+        case 'bullish-cross':
+            icon = 'fa-angles-up text-sky-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Bullish Cross: RSI over SMA.`;
+            break;
+        case 'death-cross':
+            icon = 'fa-angles-down text-purple-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Death Cross: RSI under SMA.`;
+            break;
+        case 'bullish-divergence':
+            icon = 'fa-chart-line text-green-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Bullish Divergence detected.`;
+            break;
+        case 'bearish-divergence':
+            icon = 'fa-chart-line text-red-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Bearish Divergence detected.`;
+            break;
+        case 'stoch-recovery':
+            icon = 'fa-level-up-alt text-cyan-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Stoch Recovery from Zero`;
+            break;
+        case 'stoch-bullish-cross':
+            icon = 'fa-signal text-blue-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Stoch Bullish Cross after Recovery`;
+            break;
+        case 'price-golden-pocket':
+            icon = 'fa-magnet text-amber-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Price in Golden Pocket`;
+            break;
+        case 'gp-reversal-volume':
+            icon = 'fa-chart-line text-amber-600';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `GP Reversal with rising volume`;
+            break;
+        case 'fib-786-reversal':
+            icon = 'fa-wave-square text-fuchsia-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Reversal from 0.786 Fib Zone`;
+            break;
+        case 'breakout-volume':
+            icon = 'fa-bolt text-yellow-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Breakout with Volume Surge`;
+            break;
+        case 'capitulation-volume':
+            icon = 'fa-skull-crossbones text-slate-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Capitulation Volume Detected`;
+            break;
+        case 'accumulation-volume':
+            icon = 'fa-box-archive text-indigo-500';
+            title = `${notification.symbol} (${notification.timeframe})`;
+            body = `Accumulation Volume Detected`;
+            break;
+        case 'auto-trade-buy':
+            icon = 'fa-cart-plus text-teal-500';
+            title = `Auto-BUY: ${notification.symbol}`;
+            const buyReasonText = formatTradeReasonText(notification.reason);
+            body = buyReasonText
+                ? `${buyReasonText} @ $${notification.price?.toFixed(4)}`
+                : `${notification.symbol} @ $${notification.price?.toFixed(4)}`;
+            break;
+        case 'auto-trade-sell':
+            icon = 'fa-hand-holding-dollar text-orange-500';
+            title = `Auto-SELL: ${notification.symbol}`;
+            const sellReasonText = formatTradeReasonText(notification.reason);
+            body = sellReasonText
+                ? `${sellReasonText} @ $${notification.price?.toFixed(4)}`
+                : `${notification.symbol} @ $${notification.price?.toFixed(4)}`;
+            break;
+        default:
+            icon = 'fa-bell';
+            title = 'Notification';
+            body = '...';
+    }
+
+
+    return (
+        <div className={`p-3 border-b border-light-border dark:border-dark-border last:border-b-0 hover:bg-light-border/50 dark:hover:bg-dark-border/50 transition-colors`}>
+            <div className="flex items-start gap-3">
+                <i className={`fa-solid ${icon} text-lg mt-1`}></i>
+                <div>
+                    <p className="font-bold text-sm text-dark-text dark:text-light-text">{title}</p>
+                    <p className="text-xs text-medium-text-light dark:text-medium-text">{body}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+interface NotificationPanelProps {
+    isOpen: boolean;
+    notifications: Notification[];
+    onClear: () => void;
+}
+
+const NotificationPanel: React.FC<NotificationPanelProps> = ({ isOpen, notifications, onClear }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div
+            className="absolute top-full mt-2 w-60 max-w-[calc(100vw-2rem)] bg-light-bg dark:bg-dark-bg backdrop-blur-lg border border-light-border/50 dark:border-dark-border/50 rounded-xl shadow-2xl z-50 animate-dropdown-in flex flex-col overflow-hidden md:right-0 left-1/2 -translate-x-[65%] md:left-auto md:translate-x-0 origin-top md:origin-top-right"
+        >
+            <div className="flex justify-between items-center p-3 border-b border-light-border dark:border-dark-border">
+                <h3 className="font-bold text-dark-text dark:text-light-text">Notifications</h3>
+                {notifications.length > 0 && (
+                     <button onClick={onClear} className="text-xs font-semibold text-primary-light dark:text-primary hover:underline focus:outline-none">
+                        Clear All
+                    </button>
+                )}
+            </div>
+            <div className="flex-grow max-h-[60vh] overflow-y-auto">
+                {notifications.length === 0 ? (
+                    <div className="text-center p-8 text-sm text-medium-text-light dark:text-medium-text">
+                        <i className="fa-solid fa-bell-slash text-4xl mb-4 opacity-70"></i>
+                        <p>No new notifications.</p>
+                    </div>
+                ) : (
+                    <div>
+                        {notifications.map(n => <NotificationItem key={n.id} notification={n} />)}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export default NotificationPanel;
+
+
+
+export interface AlertConditions {
+    extreme: boolean;
+    cross: boolean;
+    stochRecovery: boolean;
+    stochCross: boolean;
+    priceGoldenPocket: boolean;
+    gpReversalVolume: boolean;
+    fib786Reversal: boolean;
+    breakoutVolume: boolean;
+    capitulationVolume: boolean;
+    accumulationVolume: boolean;
+}
+
+ alertConditions: {
+        extreme: true,
+        cross: true,
+        stochRecovery: true,
+        stochCross: true,
+        priceGoldenPocket: true,
+        gpReversalVolume: true,
+        fib786Reversal: true,
+        breakoutVolume: true,
+        capitulationVolume: true,
+        accumulationVolume: true,
+    },
+};
+
+const AUTO_TRADE_BULLISH_CROSS_USD_AMOUNT = 100;
+const AUTO_TRADE_DIVERGENCE_USD_AMOUNT = 100;
+const AUTO_TRADE_OVERSOLD_USD_AMOUNT = 200;
+const AUTO_TRADE_STRATEGY_B_USD_AMOUNT = 200;
+const NOTIFICATION_LIMIT = 50;
+const BACKGROUND_MONITORING_INTERVAL = 180000; // 3 minutes
+
+// === Splash Screen Component ===
+const SplashScreen: React.FC = () => {
+  return (
+    <div className="splash-screen" aria-live="polite" aria-label="Loading Crypto RSI Scanner">
+      <div className="splash-content">
+        <svg className="splash-logo" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M 10 70 L 40 20 L 60 60 L 90 10 L 120 70 L 150 30 L 190 60" />
+        </svg>
+        <h1 className="splash-title">Crypto RSI Scanner</h1>
+      </div>
+    </div>
+  );
+};
+
+
+
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import CryptoHeader from './components/CryptoHeader';
+import Grid from './components/Grid';
+import Heatmap from './components/Heatmap';
+import PriceGrid from './components/PriceGrid';
+import StochGrid from './components/StochGrid';
+import Modal from './components/Modal';
+import PriceDetailModal from './components/PriceDetailModal';
+import StochDetailModal from './components/StochDetailModal';
+import SettingsPanel from './components/SettingsPanel';
+import Footer from './components/Footer';
+import AssetListModal from './components/AssetListModal';
+import FullViewPage from './components/FullViewPage';
+import PaperTradingPanel from './components/PaperTradingPanel';
+import TradeSignalsModal from './components/TradeSignalsModal';
+import AlertsModal from './components/AlertsModal';
+import { DEFAULT_SYMBOLS, TIMEFRAMES, LIGHT_THEME_SETTINGS, DARK_THEME_SETTINGS, formatTradeReasonText } from './constants';
+import type { Settings, SymbolData, Timeframe, Theme, Notification, SortOrder, ViewMode, ActiveModal, Trade, TradeSide, Position, CompletedTrade, TradeCategory, TradeEntryReason, TradeReason, TradeConditions, AlertConditions } from './types';
+import { fetchRsiForSymbol } from './services/binanceService';
+import { detectBullishDivergence, detectBearishDivergence, detectStrategyBDivergence } from './services/divergenceService';
+
+const AUTO_TRADE_BULLISH_CROSS_USD_AMOUNT = 100;
+const AUTO_TRADE_DIVERGENCE_USD_AMOUNT = 100;
+const AUTO_TRADE_OVERSOLD_USD_AMOUNT = 200;
+const AUTO_TRADE_STRATEGY_B_USD_AMOUNT = 200;
+const NOTIFICATION_LIMIT = 50;
+const BACKGROUND_MONITORING_INTERVAL = 180000; // 3 minutes
+
+// === Splash Screen Component ===
+const SplashScreen: React.FC = () => {
+  return (
+    <div className="splash-screen" aria-live="polite" aria-label="Loading Crypto RSI Scanner">
+      <div className="splash-content">
+        <svg className="splash-logo" viewBox="0 0 200 80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M 10 70 L 40 20 L 60 60 L 90 10 L 120 70 L 150 30 L 190 60" />
+        </svg>
+        <h1 className="splash-title">Crypto RSI Scanner</h1>
+      </div>
+    </div>
+  );
+};
+
+// === Toast Notification Components ===
+interface ToastNotificationProps {
+  toast: Notification;
+  onRemove: (id: number) => void;
+}
+
+const ToastNotification: React.FC<ToastNotificationProps> = ({ toast, onRemove }) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const onRemoveRef = useRef(onRemove);
+
+    // Keep the onRemove function reference up-to-date
+    useEffect(() => {
+        onRemoveRef.current = onRemove;
+    }, [onRemove]);
+
+    useEffect(() => {
+        // Trigger entrance animation
+        const enter = requestAnimationFrame(() => {
+            setIsVisible(true);
+        });
+
+        // Set timer to automatically dismiss the toast
+        const timer = setTimeout(() => {
+            setIsVisible(false); // Trigger exit animation
+            setTimeout(() => onRemoveRef.current(toast.id), 500); 
+        }, 5000);
+
+        return () => {
+            cancelAnimationFrame(enter);
+            clearTimeout(timer);
+        };
+    }, [toast.id]);
+
+    const handleClose = () => {
+        setIsVisible(false); // Trigger exit animation
+        setTimeout(() => onRemoveRef.current(toast.id), 500);
+    };
+  
+    let accentColor = '', icon = '', title = '', iconColor = '';
+    let body = toast.body || '';
+    
+    switch (toast.type) {
+        case 'overbought':
+            accentColor = 'bg-red-500';
+            icon = 'fa-arrow-trend-up';
+            iconColor = 'text-red-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `is now Overbought at ${toast.rsi?.toFixed(2)}`;
+            break;
+        case 'oversold':
+            accentColor = 'bg-green-500';
+            icon = 'fa-arrow-trend-down';
+            iconColor = 'text-green-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `is now Oversold at ${toast.rsi?.toFixed(2)}`;
+            break;
+        case 'bullish-cross':
+            accentColor = 'bg-sky-500';
+            icon = 'fa-angles-up';
+            iconColor = 'text-sky-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Bullish Cross: RSI crossed above SMA.`;
+            break;
+        case 'death-cross':
+            accentColor = 'bg-purple-500';
+            icon = 'fa-angles-down';
+            iconColor = 'text-purple-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Death Cross: RSI crossed below SMA.`;
+            break;
+        case 'bullish-divergence':
+            accentColor = 'bg-green-600';
+            icon = 'fa-chart-line';
+            iconColor = 'text-green-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Bullish Divergence detected.`;
+            break;
+        case 'bearish-divergence':
+            accentColor = 'bg-red-600';
+            icon = 'fa-chart-line';
+            iconColor = 'text-red-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Bearish Divergence detected.`;
+            break;
+        case 'stoch-recovery':
+            accentColor = 'bg-cyan-500';
+            icon = 'fa-level-up-alt';
+            iconColor = 'text-cyan-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Stoch Recovery from Zero`;
+            break;
+        case 'stoch-bullish-cross':
+            accentColor = 'bg-blue-500';
+            icon = 'fa-signal';
+            iconColor = 'text-blue-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Stoch Bullish Cross after Recovery`;
+            break;
+        case 'price-golden-pocket':
+            accentColor = 'bg-amber-500';
+            icon = 'fa-magnet';
+            iconColor = 'text-amber-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Price is in Golden Pocket`;
+            break;
+        case 'gp-reversal-volume':
+            accentColor = 'bg-amber-600';
+            icon = 'fa-chart-line';
+            iconColor = 'text-amber-600';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `GP Reversal with rising volume`;
+            break;
+        case 'fib-786-reversal':
+            accentColor = 'bg-fuchsia-500';
+            icon = 'fa-wave-square';
+            iconColor = 'text-fuchsia-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Reversal from 0.786 Fib Zone`;
+            break;
+        case 'breakout-volume':
+            accentColor = 'bg-yellow-500';
+            icon = 'fa-bolt';
+            iconColor = 'text-yellow-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Breakout with Volume Surge`;
+            break;
+        case 'capitulation-volume':
+            accentColor = 'bg-slate-500';
+            icon = 'fa-skull-crossbones';
+            iconColor = 'text-slate-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Capitulation Volume Detected`;
+            break;
+        case 'accumulation-volume':
+            accentColor = 'bg-indigo-500';
+            icon = 'fa-box-archive';
+            iconColor = 'text-indigo-500';
+            title = `${toast.symbol} (${toast.timeframe})`;
+            body = `Accumulation Volume Detected`;
+            break;
+        case 'auto-trade-buy':
+            accentColor = 'bg-teal-500';
+            icon = 'fa-cart-plus';
+            iconColor = 'text-teal-500';
+            title = `Auto-BUY: ${toast.symbol}`;
+            const buyReasonText = formatTradeReasonText(toast.reason);
+            body = buyReasonText
+                ? `${buyReasonText} @ $${toast.price?.toFixed(4)}`
+                : `${toast.symbol} @ $${toast.price?.toFixed(4)}`;
+            break;
+        case 'auto-trade-sell':
+            accentColor = 'bg-orange-500';
+            icon = 'fa-hand-holding-dollar';
+            iconColor = 'text-orange-500';
+            title = `Auto-SELL: ${toast.symbol}`;
+            const sellReasonText = formatTradeReasonText(toast.reason);
+            body = sellReasonText
+                ? `${sellReasonText} @ $${toast.price?.toFixed(4)}`
+                : `${toast.symbol} @ $${toast.price?.toFixed(4)}`;
+            break;
+    }
+
+
+  return (
+    <div
+      className={`transform transition-all duration-500 ease-in-out relative w-full max-w-xs p-4 overflow-hidden rounded-xl shadow-2xl bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border text-dark-text dark:text-light-text ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8'}`}
+      role="alert"
+      aria-live="assertive"
+    >
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${accentColor}`}></div>
+      <div className="flex items-start pl-3">
+        <div className="flex-shrink-0 pt-0.5">
+          <i className={`fa-solid ${icon} text-xl ${iconColor}`}></i>
+        </div>
+        <div className="ml-4 flex-1">
+          <p className="text-sm font-bold">{title}</p>
+          <p className="mt-1 text-sm">{body}</p>
+        </div>
+        <div className="ml-4 flex-shrink-0 flex">
+          <button onClick={handleClose} className="inline-flex text-medium-text-light dark:text-medium-text hover:text-dark-text dark:hover:text-light-text focus:outline-none" aria-label="Close">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface ToastContainerProps {
+  toasts: Notification[];
+  onRemove: (id: number) => void;
+}
+
+const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onRemove }) => (
+  <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-xs space-y-3">
+    {toasts.map(toast => <ToastNotification key={toast.id} toast={toast} onRemove={onRemove} />)}
+  </div>
+);
+
+const getTradeCategory = (tf: Timeframe): TradeCategory | null => {
+    if (['5m', '15m', '1h'].includes(tf)) return 'scalping';
+    if (['4h', '8h', '1d', '3d', '1w'].includes(tf)) return 'long-term';
+    return null;
+}
+
+// === Main App Component ===
+const App: React.FC = () => {
+    const [isInitializing, setIsInitializing] = useState(() => {
+        return !sessionStorage.getItem('hasSeenSplash');
+    });
+
+    useEffect(() => {
+        if (isInitializing) {
+            sessionStorage.setItem('hasSeenSplash', 'true');
+            const timer = setTimeout(() => {
+                setIsInitializing(false); 
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [isInitializing]);
+    
+    const [theme, setTheme] = useState<Theme>('dark');
+    const [settings, setSettings] = useState<Settings>(() => {
+        try {
+            const savedSettings = localStorage.getItem('crypto-settings');
+            if (savedSettings) {
+                // Merge saved settings with default to ensure all keys are present
+                const parsed = JSON.parse(savedSettings);
+                const defaultSettings = theme === 'dark' ? DARK_THEME_SETTINGS : LIGHT_THEME_SETTINGS;
+                // Deep merge nested objects
+                const mergedSettings = { ...defaultSettings, ...parsed };
+                mergedSettings.tradeConditions = { ...defaultSettings.tradeConditions, ...parsed.tradeConditions };
+                mergedSettings.alertConditions = { ...defaultSettings.alertConditions, ...parsed.alertConditions };
+                return mergedSettings;
+            }
+        } catch {}
+        return theme === 'dark' ? DARK_THEME_SETTINGS : LIGHT_THEME_SETTINGS;
+    });
+
+    const [timeframe, setTimeframe] = useState<Timeframe>('15m');
+    const [symbolsData, setSymbolsData] = useState<Record<string, SymbolData>>({});
+    const [loading, setLoading] = useState(true);
+    const [lastDataFetch, setLastDataFetch] = useState<Date | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [viewMode, setViewMode] = useState<ViewMode>('chart');
+    const [page, setPage] = useState<'dashboard' | 'full-view'>('dashboard');
+    
+    const [allSymbols, setAllSymbols] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-all-symbols');
+            return saved ? JSON.parse(saved) : DEFAULT_SYMBOLS;
+        } catch { return DEFAULT_SYMBOLS; }
+    });
+
+    const [userSymbols, setUserSymbols] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-user-symbols');
+            return saved ? JSON.parse(saved) : allSymbols;
+        } catch { return allSymbols; }
+    });
+
+    const [favorites, setFavorites] = useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-favorites');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    });
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [sortOrder, setSortOrder] = useState<SortOrder>('default');
+
+    const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
+    const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
+    const [isTradeSignalsModalOpen, setIsTradeSignalsModalOpen] = useState(false);
+    const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
+    const [isPaperTradingOpen, setIsPaperTradingOpen] = useState(false);
+
+    // Alert State
+    const [lastAlertedRsiStatus, setLastAlertedRsiStatus] = useState<Record<string, 'overbought' | 'oversold' | 'neutral'>>({});
+    const [lastAlertedCrossStatus, setLastAlertedCrossStatus] = useState<Record<string, 'bullish' | 'death'>>({});
+    const [lastAlertedDivergence, setLastAlertedDivergence] = useState<Record<string, number>>({});
+    const [lastAlertedBearishDivergence, setLastAlertedBearishDivergence] = useState<Record<string, number>>({});
+    // New Advanced Alert State
+    const [stochAlertState, setStochAlertState] = useState<Record<string, 'zeroed' | 'recovered'>>({});
+    const [gpState, setGpState] = useState<Record<string, { inGp: boolean; consecutiveVolumeIncreases: number; lastVolume: number; }>>({});
+    const [fib786State, setFib786State] = useState<Record<string, boolean>>({});
+    const [lastVolumeAlertTime, setLastVolumeAlertTime] = useState<Record<string, number>>({});
+
+
+    const [liveToasts, setLiveToasts] = useState<Notification[]>([]);
+    
+    const [notifications, setNotifications] = useState<Notification[]>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-notifications');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    });
+
+    // Paper Trading State
+    const [trades, setTrades] = useState<Trade[]>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-trades');
+            return saved ? JSON.parse(saved) : [];
+        } catch { return []; }
+    });
+
+    const [isAutoTradingEnabled, setIsAutoTradingEnabled] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-auto-trade-enabled');
+            return saved ? JSON.parse(saved) : false;
+        } catch { return false; }
+    });
+
+    const [positionSellMarkers, setPositionSellMarkers] = useState<Record<string, { overbought?: boolean; bearishDiv?: boolean; breakEvenArmed?: boolean; }>>(() => {
+        try {
+            const saved = localStorage.getItem('crypto-position-sell-markers');
+            return saved ? JSON.parse(saved) : {};
+        } catch { return {}; }
+    });
+
+    useEffect(() => { localStorage.setItem('crypto-trades', JSON.stringify(trades)); }, [trades]);
+    useEffect(() => { localStorage.setItem('crypto-auto-trade-enabled', JSON.stringify(isAutoTradingEnabled)); }, [isAutoTradingEnabled]);
+    useEffect(() => { localStorage.setItem('crypto-position-sell-markers', JSON.stringify(positionSellMarkers)); }, [positionSellMarkers]);
+    useEffect(() => { localStorage.setItem('crypto-settings', JSON.stringify(settings)); }, [settings]);
+
+
+    const openPositions = useMemo(() => {
+        const openPositionsMap: Record<string, Position> = {};
+        const tradesByPositionKey: Record<string, Trade[]> = {};
+
+        for (const trade of trades) {
+            const key = `${trade.symbol}-${trade.timeframe}`;
+            if (!tradesByPositionKey[key]) tradesByPositionKey[key] = [];
+            tradesByPositionKey[key].push(trade);
+        }
+
+        for (const key in tradesByPositionKey) {
+            const positionTrades = [...tradesByPositionKey[key]].sort((a, b) => a.timestamp - b.timestamp);
+            const openBuys: Trade[] = [];
+            const firstBuyTrade = positionTrades.find(t => t.side === 'buy');
+            if (!firstBuyTrade) continue;
+
+            for (const trade of positionTrades) {
+                if (trade.side === 'buy') {
+                    openBuys.push({ ...trade });
+                } else { // Sell
+                    let sellQuantity = trade.quantity;
+                    while (sellQuantity > 1e-9 && openBuys.length > 0) {
+                        const buyToClose = openBuys[0];
+                        const closeableQuantity = Math.min(sellQuantity, buyToClose.quantity);
+                        sellQuantity -= closeableQuantity;
+                        buyToClose.quantity -= closeableQuantity;
+                        if (buyToClose.quantity < 1e-9) openBuys.shift();
+                    }
+                }
+            }
+            
+            if (openBuys.length > 0) {
+                const totalQuantity = openBuys.reduce((sum, t) => sum + t.quantity, 0);
+                const totalValue = openBuys.reduce((sum, t) => sum + t.price * t.quantity, 0);
+                const avgEntry = totalValue > 0 ? totalValue / totalQuantity : 0;
+                
+                openPositionsMap[key] = {
+                    symbol: firstBuyTrade.symbol,
+                    quantity: totalQuantity,
+                    averageEntryPrice: avgEntry,
+                    trades: openBuys,
+                    timeframe: firstBuyTrade.timeframe,
+                    entryReason: firstBuyTrade.entryReason,
+                };
+            }
+        }
+        return Object.values(openPositionsMap);
+    }, [trades]);
+    
+    // Create refs to hold the latest state for use in effects, preventing feedback loops.
+    const openPositionsRef = useRef(openPositions);
+    const positionSellMarkersRef = useRef(positionSellMarkers);
+    const tradesRef = useRef(trades);
+
+    useEffect(() => {
+        openPositionsRef.current = openPositions;
+    }, [openPositions]);
+
+    useEffect(() => {
+        positionSellMarkersRef.current = positionSellMarkers;
+    }, [positionSellMarkers]);
+    
+    useEffect(() => {
+        tradesRef.current = trades;
+    }, [trades]);
+
+    const REFRESH_INTERVAL = 60000;
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+        if (theme === 'light') root.classList.remove('dark');
+        else root.classList.add('dark');
+        document.body.style.backgroundColor = settings.bgColor;
+    }, [theme, settings.bgColor]);
+    
+    useEffect(() => { localStorage.setItem('crypto-all-symbols', JSON.stringify(allSymbols)); }, [allSymbols]);
+    useEffect(() => { localStorage.setItem('crypto-user-symbols', JSON.stringify(userSymbols)); }, [userSymbols]);
+    useEffect(() => { localStorage.setItem('crypto-favorites', JSON.stringify(favorites)); }, [favorites]);
+    useEffect(() => { localStorage.setItem('crypto-notifications', JSON.stringify(notifications)); }, [notifications]);
+
+    // Automatically switch view mode if the current one gets disabled in settings
+    useEffect(() => {
+        if (viewMode === 'heatmap' && !settings.showHeatmapView) {
+            setViewMode('chart');
+        }
+        if (viewMode === 'price' && !settings.showPriceView) {
+            setViewMode('chart');
+        }
+        if (viewMode === 'stoch' && !settings.showStochView) {
+            setViewMode('chart');
+        }
+    }, [settings.showHeatmapView, settings.showPriceView, settings.showStochView, viewMode]);
+
+    const handleThemeToggle = useCallback(() => {
+        const newTheme = theme === 'dark' ? 'light' : 'dark';
+        setTheme(newTheme);
+        setSettings(prev => ({
+            ...prev,
+            ...(newTheme === 'light' ? LIGHT_THEME_SETTINGS : DARK_THEME_SETTINGS)
+        }));
+    }, [theme]);
+    
+    const fetchData = useCallback(async (selectedTimeframe: Timeframe) => {
+        if (userSymbols.length === 0) {
+            setSymbolsData({});
+            setLoading(false);
+            return;
+        }
+        setLoading(true);
+        try {
+            const promises = userSymbols.map(symbol => fetchRsiForSymbol(symbol, selectedTimeframe));
+            const results = await Promise.all(promises);
+            const newData: Record<string, SymbolData> = {};
+            results.forEach((data, index) => {
+                newData[userSymbols[index]] = data;
+            });
+            setSymbolsData(newData);
+        } catch (error) {
+            console.error("Failed to fetch all symbol data:", error);
+        } finally {
+            setLoading(false);
+            setLastDataFetch(new Date());
+        }
+    }, [userSymbols]);
+
+    useEffect(() => {
+        fetchData(timeframe); // Initial fetch
+        const dataFetchInterval = setInterval(() => fetchData(timeframe), REFRESH_INTERVAL);
+
+        return () => clearInterval(dataFetchInterval);
+    }, [timeframe, fetchData]);
+
+    const addNotification = useCallback((notification: Omit<Notification, 'id' | 'read'>) => {
+        const newNotification = { ...notification, id: Date.now() + Math.random(), read: false };
+        setNotifications(prev => [newNotification, ...prev].slice(0, NOTIFICATION_LIMIT));
+        setLiveToasts(prev => [newNotification, ...prev].slice(0, 8));
+    }, []);
+
+    const removeLiveToast = useCallback((id: number) => {
+        setLiveToasts(prev => prev.filter(toast => toast.id !== id));
+    }, []);
+
+    const markNotificationsAsRead = useCallback(() => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }, []);
+
+    const clearNotifications = useCallback(() => setNotifications([]), []);
+    
+    const handleTrade = useCallback((symbol: string, side: TradeSide, quantity: number, tradeTimeframeOverride?: Timeframe, reason?: TradeReason) => {
+        const tf = tradeTimeframeOverride || timeframe;
+        const currentPrice = symbolsData[symbol]?.price;
+        if (!currentPrice || quantity <= 0) {
+            console.error("Could not execute trade. Price data unavailable or invalid quantity.");
+            return;
+        }
+        const tradeCategory = getTradeCategory(tf);
+        if (!tradeCategory) {
+            console.error(`Trade attempted on invalid timeframe for auto-trading: ${tf}`);
+            return;
+        }
+
+        const newTrade: Trade = { 
+            id: Date.now() + Math.random(), 
+            symbol, 
+            side, 
+            price: currentPrice, 
+            quantity, 
+            timestamp: Date.now(),
+            timeframe: tf,
+            tradeCategory: tradeCategory,
+            entryReason: side === 'buy' ? reason as TradeEntryReason : undefined,
+        };
+        setTrades(prev => [...prev, newTrade]);
+        
+        addNotification({
+            symbol,
+            timeframe: tf,
+            price: currentPrice,
+            type: side === 'buy' ? 'auto-trade-buy' : 'auto-trade-sell',
+            reason: reason,
+        });
+    }, [symbolsData, addNotification, timeframe]);
+
+    // Active View Auto-Trading & Alerts
+    useEffect(() => {
+        if (Object.keys(symbolsData).length === 0) return;
+
+        const newAlertStatus = { ...lastAlertedRsiStatus };
+        
+        Object.keys(symbolsData).forEach(symbol => {
+            const symbolData = symbolsData[symbol];
+            if (!symbolData || !symbolData.rsi || symbolData.rsi.length < 2) return;
+            
+            const lastRsiPoint = symbolData.rsi[symbolData.rsi.length - 1];
+            const lastRsiValue = lastRsiPoint.value;
+            const lastStochKPoint = symbolData.stochK?.[symbolData.stochK.length - 1];
+            const prevStochKPoint = symbolData.stochK?.[symbolData.stochK.length - 2];
+            const prevStochDPoint = symbolData.stochD?.[symbolData.stochD.length - 2];
+            const currentKline = symbolData.klines[symbolData.klines.length - 1];
+
+            // --- ALERTS ---
+            // Overbought/Oversold Alerts
+            if (settings.alertConditions.extreme && ['15m', '1h', '2h', '4h', '8h', '1d', '1w'].includes(timeframe)) {
+                const alertKey = `${symbol}-${timeframe}`;
+                const previousStatus = lastAlertedRsiStatus[alertKey] || 'neutral';
+                let currentStatus: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+                
+                if (lastRsiValue >= 70) {
+                    currentStatus = 'overbought';
+                    if (previousStatus !== 'overbought') addNotification({ symbol, timeframe, rsi: lastRsiValue, type: 'overbought' });
+                } else if (lastRsiValue <= 30) {
+                    currentStatus = 'oversold';
+                    if (previousStatus !== 'oversold') addNotification({ symbol, timeframe, rsi: lastRsiValue, type: 'oversold' });
+                }
+                newAlertStatus[alertKey] = currentStatus;
+            }
+            
+            // Cross & Divergence Alerts
+            if (settings.alertConditions.cross && ['1h', '2h', '4h', '8h', '1d'].includes(timeframe)) {
+                const prevRsiPoint = symbolData.rsi[symbolData.rsi.length - 2];
+                const lastSmaPoint = symbolData.sma.find(p => p.time === lastRsiPoint.time);
+                const prevSmaPoint = symbolData.sma.find(p => p.time === prevRsiPoint.time);
+
+                if (prevRsiPoint && lastSmaPoint && prevSmaPoint) {
+                    const crossAlertKey = `${symbol}-${timeframe}-cross`;
+                    const previousCrossStatus = lastAlertedCrossStatus[crossAlertKey];
+
+                    if (prevRsiPoint.value <= prevSmaPoint.value && lastRsiPoint.value > lastSmaPoint.value && previousCrossStatus !== 'bullish') {
+                        addNotification({ symbol, timeframe, rsi: lastRsiValue, type: 'bullish-cross' });
+                        setLastAlertedCrossStatus(prev => ({...prev, [crossAlertKey]: 'bullish' }));
+                    } else if (prevRsiPoint.value >= prevSmaPoint.value && lastRsiPoint.value < lastSmaPoint.value && previousCrossStatus !== 'death') {
+                        addNotification({ symbol, timeframe, rsi: lastRsiValue, type: 'death-cross' });
+                        setLastAlertedCrossStatus(prev => ({...prev, [crossAlertKey]: 'death' }));
+                    }
+                }
+                
+                const bullishDivergence = detectBullishDivergence(symbolData.klines, symbolData.rsi);
+                if (bullishDivergence) {
+                    const divAlertKey = `${symbol}-${timeframe}-divergence`;
+                    if (lastAlertedDivergence[divAlertKey] !== bullishDivergence.pivotTime) {
+                        addNotification({ symbol, timeframe, rsi: bullishDivergence.rsiValue, type: 'bullish-divergence' });
+                        setLastAlertedDivergence(prev => ({...prev, [divAlertKey]: bullishDivergence.pivotTime }));
+                    }
+                }
+
+                const bearishDivergence = detectBearishDivergence(symbolData.klines, symbolData.rsi);
+                if (bearishDivergence) {
+                    const bearDivAlertKey = `${symbol}-${timeframe}-beardivergence`;
+                    if (lastAlertedBearishDivergence[bearDivAlertKey] !== bearishDivergence.pivotTime) {
+                        addNotification({ symbol, timeframe, rsi: bearishDivergence.rsiValue, type: 'bearish-divergence' });
+                        setLastAlertedBearishDivergence(prev => ({...prev, [bearDivAlertKey]: bearishDivergence.pivotTime }));
+                    }
+                }
+            }
+
+             // --- ADVANCED ALERTS ---
+            const stochAlertKey = `${symbol}-${timeframe}-stoch`;
+            const stochApplicableTimeframes: Timeframe[] = ['1h', '2h', '4h', '8h', '1d'];
+
+            if (lastStochKPoint && stochApplicableTimeframes.includes(timeframe)) {
+                // Stoch Recovery from Zero
+                if (settings.alertConditions.stochRecovery) {
+                    if (lastStochKPoint.value === 0) {
+                        if (stochAlertState[stochAlertKey] !== 'zeroed') {
+                             setStochAlertState(prev => ({ ...prev, [stochAlertKey]: 'zeroed' }));
+                        }
+                    } else if (lastStochKPoint.value > 0 && lastStochKPoint.value < 5 && stochAlertState[stochAlertKey] === 'zeroed') {
+                        addNotification({ symbol, timeframe, type: 'stoch-recovery' });
+                        setStochAlertState(prev => ({ ...prev, [stochAlertKey]: 'recovered' }));
+                    }
+                }
+                // Stoch Bullish Cross after Recovery
+                if (settings.alertConditions.stochCross && stochAlertState[stochAlertKey] === 'recovered') {
+                    const lastStochDPoint = symbolData.stochD?.[symbolData.stochD.length - 1];
+                    if (prevStochKPoint && prevStochDPoint && lastStochKPoint && lastStochDPoint) {
+                        if (prevStochKPoint.value <= prevStochDPoint.value && lastStochKPoint.value > lastStochDPoint.value) {
+                             addNotification({ symbol, timeframe, type: 'stoch-bullish-cross' });
+                             setStochAlertState(prev => { const newState = {...prev}; delete newState[stochAlertKey]; return newState; }); // Reset state
+                        }
+                    }
+                }
+            }
+            
+            // --- PRICE-BASED & VOLUME-BASED ALERTS ---
+            const priceAlertKey = `${symbol}-${timeframe}`;
+            if (symbolData.klines.length > 20) {
+                const highs = symbolData.klines.map(k => k.high);
+                const lows = symbolData.klines.map(k => k.low);
+                const highestHigh = Math.max(...highs);
+                const lowestLow = Math.min(...lows);
+                const range = highestHigh - lowestLow;
+                const isUptrend = currentKline.close > symbolData.klines[0].close;
+
+                // Golden Pocket Logic
+                if (settings.alertConditions.priceGoldenPocket || settings.alertConditions.gpReversalVolume) {
+                    if (range > 0 && ['1h', '4h', '1d'].includes(timeframe)) {
+                        const gpTop = isUptrend ? highestHigh - (range * 0.618) : lowestLow + (range * 0.66);
+                        const gpBottom = isUptrend ? highestHigh - (range * 0.66) : lowestLow + (range * 0.618);
+                        const isInGp = symbolData.price >= Math.min(gpTop, gpBottom) && symbolData.price <= Math.max(gpTop, gpBottom);
+                        const prevState = gpState[priceAlertKey] || { inGp: false, consecutiveVolumeIncreases: 0, lastVolume: 0 };
+                        
+                        if (isInGp && !prevState.inGp) {
+                            if (settings.alertConditions.priceGoldenPocket) addNotification({ symbol, timeframe, type: 'price-golden-pocket', price: symbolData.price });
+                            setGpState(prev => ({ ...prev, [priceAlertKey]: { ...prevState, inGp: true } }));
+                        } else if (!isInGp && prevState.inGp) {
+                            if (settings.alertConditions.gpReversalVolume && symbolData.klines.length >= 3) {
+                                const k1 = symbolData.klines[symbolData.klines.length - 1];
+                                const k2 = symbolData.klines[symbolData.klines.length - 2];
+                                const k3 = symbolData.klines[symbolData.klines.length - 3];
+                                if (k1.volume > k2.volume && k2.volume > k3.volume) {
+                                    addNotification({ symbol, timeframe, type: 'gp-reversal-volume', price: symbolData.price });
+                                }
+                            }
+                            setGpState(prev => ({ ...prev, [priceAlertKey]: { ...prevState, inGp: false } }));
+                        }
+                    }
+                }
+                
+                // 0.786 Fib Reversal
+                if (settings.alertConditions.fib786Reversal && range > 0 && ['1h', '4h', '1d'].includes(timeframe)) {
+                    const fib786 = isUptrend ? highestHigh - (range * 0.786) : lowestLow + (range * 0.786);
+                    const zoneSize = fib786 * 0.005; // 0.5% zone
+                    const isInZone = symbolData.price >= (fib786 - zoneSize) && symbolData.price <= (fib786 + zoneSize);
+                    const wasInZone = fib786State[priceAlertKey];
+                    
+                    if(isInZone && !wasInZone) setFib786State(prev => ({...prev, [priceAlertKey]: true}));
+                    else if (!isInZone && wasInZone) {
+                        addNotification({ symbol, timeframe, type: 'fib-786-reversal', price: symbolData.price });
+                        setFib786State(prev => ({...prev, [priceAlertKey]: false}));
+                    }
+                }
+
+                // Volume Alerts
+                const volAlertKey = `${symbol}-${timeframe}-vol`;
+                if (currentKline.time !== lastVolumeAlertTime[volAlertKey]) {
+                    const lookback = 20;
+                    const recentKlines = symbolData.klines.slice(-lookback -1, -1);
+                    const avgVolume = recentKlines.reduce((sum, k) => sum + k.volume, 0) / lookback;
+                    
+                    // Breakout Volume
+                    if (settings.alertConditions.breakoutVolume && ['4h', '1d'].includes(timeframe)) {
+                        const swingHigh = Math.max(...recentKlines.map(k => k.high));
+                        if (currentKline.close > swingHigh && currentKline.volume > (avgVolume * 2)) {
+                            addNotification({ symbol, timeframe, type: 'breakout-volume' });
+                            setLastVolumeAlertTime(prev => ({...prev, [volAlertKey]: currentKline.time}));
+                        }
+                    }
+                    // Capitulation Volume
+                    if (settings.alertConditions.capitulationVolume && ['4h', '1d'].includes(timeframe)) {
+                         const avgBody = recentKlines.reduce((sum, k) => sum + Math.abs(k.close - k.open), 0) / lookback;
+                         const isLongRed = currentKline.close < currentKline.open && (currentKline.open - currentKline.close) > (avgBody * 1.5);
+                         const isDowntrend = currentKline.close < recentKlines[0].open; // Check if current close is below the open of 20 candles ago
+                         if (isLongRed && isDowntrend && currentKline.volume > (avgVolume * 3)) {
+                             addNotification({ symbol, timeframe, type: 'capitulation-volume' });
+                             setLastVolumeAlertTime(prev => ({...prev, [volAlertKey]: currentKline.time}));
+                         }
+                    }
+                    // Accumulation Volume
+                    if (settings.alertConditions.accumulationVolume && ['4h', '1d'].includes(timeframe)) {
+                        const accumulationKlines = symbolData.klines.slice(-lookback);
+                        const accHigh = Math.max(...accumulationKlines.map(k => k.high));
+                        const accLow = Math.min(...accumulationKlines.map(k => k.low));
+                        const avgPrice = accumulationKlines.reduce((sum, k) => sum + (k.high + k.low) / 2, 0) / accumulationKlines.length;
+                        const isSideways = avgPrice > 0 && ((accHigh - accLow) / avgPrice) * 100 < 10;
+                        
+                        if(isSideways) {
+                            const upCandles = accumulationKlines.filter(k => k.close > k.open);
+                            const downCandles = accumulationKlines.filter(k => k.close < k.open);
+                            if(upCandles.length > 0 && downCandles.length > 0) {
+                                const avgUpVol = upCandles.reduce((s,k) => s+k.volume, 0) / upCandles.length;
+                                const avgDownVol = downCandles.reduce((s,k) => s+k.volume, 0) / downCandles.length;
+                                if(avgDownVol > 0 && (avgUpVol/avgDownVol) > 1.75) {
+                                     addNotification({ symbol, timeframe, type: 'accumulation-volume' });
+                                     setLastVolumeAlertTime(prev => ({...prev, [volAlertKey]: currentKline.time}));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- AUTO TRADING ---
+            const tradeCategory = getTradeCategory(timeframe);
+            if (isAutoTradingEnabled && tradeCategory && symbolData.price > 0 && settings.allowedAutoTradeTimeframes[timeframe]) {
+                const openPositionOnThisTimeframe = openPositionsRef.current.find(p => p.symbol === symbol && p.timeframe === timeframe);
+                const positionMarkerKey = `${symbol}-${timeframe}`;
+                
+                 // --- SELL LOGIC (Always Active for Open Positions) ---
+                if (openPositionOnThisTimeframe) {
+                    const prevRsiPoint = symbolData.rsi[symbolData.rsi.length - 2];
+                    const lastSmaPoint = symbolData.sma.find(p => p.time === lastRsiPoint.time);
+                    const prevSmaPoint = symbolData.sma.find(p => p.time === prevRsiPoint.time);
+                    
+                    const isDeathCross = prevRsiPoint && lastSmaPoint && prevSmaPoint && prevRsiPoint.value >= prevSmaPoint.value && lastRsiPoint.value < lastSmaPoint.value;
+                    const isOverbought = lastRsiValue >= 70;
+                    const bearishDivergence = detectBearishDivergence(symbolData.klines, symbolData.rsi);
+                    const sellMarkers = positionSellMarkersRef.current[positionMarkerKey] || {};
+
+                    // Arm Break-Even
+                    if (!sellMarkers.breakEvenArmed && lastRsiValue >= 65 && settings.tradeConditions.sell.moveToBreakEven) {
+                        setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], breakEvenArmed: true } }));
+                    }
+
+                    if (isDeathCross && settings.tradeConditions.sell.deathCross) {
+                        handleTrade(symbol, 'sell', openPositionOnThisTimeframe.quantity, timeframe, 'death-cross');
+                        setPositionSellMarkers(prev => { const newState = { ...prev }; delete newState[positionMarkerKey]; return newState; });
+                    } else if (sellMarkers.breakEvenArmed && symbolData.price <= openPositionOnThisTimeframe.averageEntryPrice && settings.tradeConditions.sell.moveToBreakEven) {
+                        handleTrade(symbol, 'sell', openPositionOnThisTimeframe.quantity, timeframe, 'break-even');
+                        setPositionSellMarkers(prev => { const newState = { ...prev }; delete newState[positionMarkerKey]; return newState; });
+                    } else if (bearishDivergence && !sellMarkers.bearishDiv && settings.tradeConditions.sell.bearishDivergence) {
+                        handleTrade(symbol, 'sell', openPositionOnThisTimeframe.quantity * 0.5, timeframe, 'bearish-divergence');
+                        setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], bearishDiv: true } }));
+                    } else if (isOverbought && !sellMarkers.overbought && settings.tradeConditions.sell.overbought) {
+                        handleTrade(symbol, 'sell', openPositionOnThisTimeframe.quantity * 0.33, timeframe, 'overbought');
+                        setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], overbought: true } }));
+                    }
+                }
+
+                // --- BUY LOGIC ---
+                if (!openPositionOnThisTimeframe) {
+                    if (settings.tradeConditions.strategyBEnabled) {
+                        const strategyBTimeframes: Timeframe[] = ['4h', '1d', '1w'];
+                        if (strategyBTimeframes.includes(timeframe)) {
+                            const lastStochKValue = symbolData.stochK?.[symbolData.stochK.length - 1]?.value;
+                            if (lastRsiValue <= 30 && lastStochKValue !== undefined && lastStochKValue <= 20) {
+                                const strategyBDivergence = detectStrategyBDivergence(symbolData.klines, symbolData.rsi, symbolData.sma, symbolData.priceSma);
+                                if (strategyBDivergence) {
+                                    handleTrade(symbol, 'buy', AUTO_TRADE_STRATEGY_B_USD_AMOUNT / symbolData.price, timeframe, 'strategy-b');
+                                }
+                            }
+                        }
+                    } else {
+                        const prevRsiPoint = symbolData.rsi[symbolData.rsi.length - 2];
+                        const lastSmaPoint = symbolData.sma.find(p => p.time === lastRsiPoint.time);
+                        const prevSmaPoint = symbolData.sma.find(p => p.time === prevRsiPoint.time);
+                        const lastKline = symbolData.klines.length > 0 ? symbolData.klines[symbolData.klines.length - 1] : null;
+                        const lastPriceSmaPoint = lastKline ? symbolData.priceSma.find(p => p.time === lastKline.time) : null;
+                        const lastStochKValue = symbolData.stochK?.[symbolData.stochK.length - 1]?.value;
+
+                        const isBullishCross = prevRsiPoint && lastSmaPoint && prevSmaPoint && prevRsiPoint.value <= prevSmaPoint.value && lastRsiPoint.value > lastSmaPoint.value;
+                        const isExtremeOversold = lastRsiValue <= 25;
+                        const isStochOversold = lastStochKValue !== undefined && lastStochKValue <= 10;
+                        const isCombinedOversold = isExtremeOversold && isStochOversold;
+                        const bullishDivergence = detectBullishDivergence(symbolData.klines, symbolData.rsi);
+                        
+                        if (isCombinedOversold && lastRsiValue <= 45 && settings.tradeConditions.buy.combinedOversold) {
+                            handleTrade(symbol, 'buy', AUTO_TRADE_OVERSOLD_USD_AMOUNT / symbolData.price, timeframe, 'combined-oversold');
+                        } else if (bullishDivergence && lastRsiValue <= 45 && settings.tradeConditions.buy.divergence) {
+                            handleTrade(symbol, 'buy', AUTO_TRADE_DIVERGENCE_USD_AMOUNT / symbolData.price, timeframe, 'divergence');
+                        } else if (isBullishCross && lastRsiValue <= 45 && lastKline && lastPriceSmaPoint && lastKline.close > lastPriceSmaPoint.value && settings.tradeConditions.buy.bullishCross) {
+                            handleTrade(symbol, 'buy', AUTO_TRADE_BULLISH_CROSS_USD_AMOUNT / symbolData.price, timeframe, 'bullish-cross');
+                        }
+                    }
+                }
+            }
+        });
+        
+        if (JSON.stringify(newAlertStatus) !== JSON.stringify(lastAlertedRsiStatus)) {
+            setLastAlertedRsiStatus(newAlertStatus);
+        }
+    }, [symbolsData, isAutoTradingEnabled, timeframe, addNotification, handleTrade, lastAlertedRsiStatus, lastAlertedCrossStatus, lastAlertedDivergence, lastAlertedBearishDivergence, settings, stochAlertState, gpState, fib786State, lastVolumeAlertTime]);
+
+    // Background Monitoring for open positions and scanning for new trades
+    useEffect(() => {
+        const backgroundScanner = async () => {
+            if (!isAutoTradingEnabled) return;
+
+            // === 1. Risk Management: Check for SELLS on ALL open positions ===
+            if (openPositionsRef.current.length > 0) {
+                for (const position of openPositionsRef.current) {
+                    try {
+                        const data = await fetchRsiForSymbol(position.symbol, position.timeframe);
+                        if (!data || !data.rsi || data.rsi.length < 2) continue;
+                        
+                        const currentPositionState = openPositionsRef.current.find(p => p.symbol === position.symbol && p.timeframe === position.timeframe);
+                        if (!currentPositionState) continue;
+                        
+                        const lastRsiPoint = data.rsi[data.rsi.length - 1];
+                        const lastRsiValue = lastRsiPoint.value;
+                        const prevRsiPoint = data.rsi[data.rsi.length - 2];
+                        const lastSmaPoint = data.sma.find(p => p.time === lastRsiPoint.time);
+                        const prevSmaPoint = data.sma.find(p => p.time === prevRsiPoint.time);
+                        
+                        const isDeathCross = prevRsiPoint && lastSmaPoint && prevSmaPoint && prevRsiPoint.value >= prevSmaPoint.value && lastRsiPoint.value < lastSmaPoint.value;
+                        const isOverbought = lastRsiValue >= 70;
+                        const bearishDivergence = detectBearishDivergence(data.klines, data.rsi);
+                        
+                        const positionMarkerKey = `${position.symbol}-${position.timeframe}`;
+                        const sellMarkers = positionSellMarkersRef.current[positionMarkerKey] || {};
+
+                        // Arm Break-Even
+                        if (!sellMarkers.breakEvenArmed && lastRsiValue >= 65 && settings.tradeConditions.sell.moveToBreakEven) {
+                            setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], breakEvenArmed: true } }));
+                        }
+
+                        if (isDeathCross && settings.tradeConditions.sell.deathCross) {
+                            handleTrade(position.symbol, 'sell', currentPositionState.quantity, position.timeframe, 'death-cross');
+                            setPositionSellMarkers(prev => { const newState = { ...prev }; delete newState[positionMarkerKey]; return newState; });
+                        } else if (sellMarkers.breakEvenArmed && data.price <= currentPositionState.averageEntryPrice && settings.tradeConditions.sell.moveToBreakEven) {
+                            handleTrade(position.symbol, 'sell', currentPositionState.quantity, position.timeframe, 'break-even');
+                            setPositionSellMarkers(prev => { const newState = { ...prev }; delete newState[positionMarkerKey]; return newState; });
+                        } else if (bearishDivergence && !sellMarkers.bearishDiv && settings.tradeConditions.sell.bearishDivergence) {
+                            handleTrade(position.symbol, 'sell', currentPositionState.quantity * 0.5, position.timeframe, 'bearish-divergence');
+                            setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], bearishDiv: true } }));
+                        } else if (isOverbought && !sellMarkers.overbought && settings.tradeConditions.sell.overbought) {
+                            handleTrade(position.symbol, 'sell', currentPositionState.quantity * 0.33, position.timeframe, 'overbought');
+                            setPositionSellMarkers(prev => ({ ...prev, [positionMarkerKey]: { ...prev[positionMarkerKey], overbought: true } }));
+                        }
+                    } catch (error) {
+                        console.error(`Background SELL check failed for ${position.symbol} (${position.timeframe}):`, error);
+                    }
+                }
+            }
+            
+            // === 2. Opportunity Scanning: Check for BUYS across ALL enabled timeframes ===
+            const enabledTimeframes = Object.entries(settings.allowedAutoTradeTimeframes)
+                .filter(([, isEnabled]) => isEnabled)
+                .map(([tf]) => tf as Timeframe);
+
+            if (enabledTimeframes.length > 0 && userSymbols.length > 0) {
+                for (const scanTimeframe of enabledTimeframes) {
+                    for (const symbol of userSymbols) {
+                         try {
+                            const openPositionOnThisTimeframe = openPositionsRef.current.find(p => p.symbol === symbol && p.timeframe === scanTimeframe);
+                            if (openPositionOnThisTimeframe) continue;
+
+                            const symbolData = await fetchRsiForSymbol(symbol, scanTimeframe);
+                            if (!symbolData || !symbolData.rsi || symbolData.rsi.length < 2 || symbolData.price <= 0) continue;
+                            
+                            if (settings.tradeConditions.strategyBEnabled) {
+                                const strategyBTimeframes: Timeframe[] = ['4h', '1d', '1w'];
+                                if (strategyBTimeframes.includes(scanTimeframe)) {
+                                    const lastRsiValue = symbolData.rsi[symbolData.rsi.length - 1]?.value;
+                                    const lastStochKValue = symbolData.stochK?.[symbolData.stochK.length - 1]?.value;
+                                    if (lastRsiValue <= 30 && lastStochKValue !== undefined && lastStochKValue <= 20) {
+                                        const strategyBDivergence = detectStrategyBDivergence(symbolData.klines, symbolData.rsi, symbolData.sma, symbolData.priceSma);
+                                        if (strategyBDivergence) {
+                                            handleTrade(symbol, 'buy', AUTO_TRADE_STRATEGY_B_USD_AMOUNT / symbolData.price, scanTimeframe, 'strategy-b');
+                                        }
+                                    }
+                                }
+                            } else {
+                                const lastRsiPoint = symbolData.rsi[symbolData.rsi.length - 1];
+                                const lastRsiValue = lastRsiPoint.value;
+                                const prevRsiPoint = symbolData.rsi[symbolData.rsi.length - 2];
+                                const lastSmaPoint = symbolData.sma.find(p => p.time === lastRsiPoint.time);
+                                const prevSmaPoint = symbolData.sma.find(p => p.time === prevRsiPoint.time);
+                                const lastKline = symbolData.klines.length > 0 ? symbolData.klines[symbolData.klines.length - 1] : null;
+                                const lastPriceSmaPoint = lastKline ? symbolData.priceSma.find(p => p.time === lastKline.time) : null;
+                                const lastStochKValue = symbolData.stochK?.[symbolData.stochK.length - 1]?.value;
+                                
+                                const isBullishCross = prevRsiPoint && lastSmaPoint && prevSmaPoint && prevRsiPoint.value <= prevSmaPoint.value && lastRsiPoint.value > lastSmaPoint.value;
+                                const isExtremeOversold = lastRsiValue <= 25;
+                                const isStochOversold = lastStochKValue !== undefined && lastStochKValue <= 10;
+                                const isCombinedOversold = isExtremeOversold && isStochOversold;
+                                const bullishDivergence = detectBullishDivergence(symbolData.klines, symbolData.rsi);
+
+                                if (isCombinedOversold && lastRsiValue <= 45 && settings.tradeConditions.buy.combinedOversold) {
+                                    handleTrade(symbol, 'buy', AUTO_TRADE_OVERSOLD_USD_AMOUNT / symbolData.price, scanTimeframe, 'combined-oversold');
+                                } else if (bullishDivergence && lastRsiValue <= 45 && settings.tradeConditions.buy.divergence) {
+                                    handleTrade(symbol, 'buy', AUTO_TRADE_DIVERGENCE_USD_AMOUNT / symbolData.price, scanTimeframe, 'divergence');
+                                } else if (isBullishCross && lastRsiValue <= 45 && lastKline && lastPriceSmaPoint && lastKline.close > lastPriceSmaPoint.value && settings.tradeConditions.buy.bullishCross) {
+                                    handleTrade(symbol, 'buy', AUTO_TRADE_BULLISH_CROSS_USD_AMOUNT / symbolData.price, scanTimeframe, 'bullish-cross');
+                                }
+                            }
+                        } catch (error) {
+                            console.error(`Background BUY check failed for ${symbol} (${scanTimeframe}):`, error);
+                        }
+                    }
+                }
+            }
+        };
+
+        const intervalId = setInterval(backgroundScanner, BACKGROUND_MONITORING_INTERVAL);
+        return () => clearInterval(intervalId);
+
+    }, [isAutoTradingEnabled, handleTrade, settings, userSymbols]);
+
+    
+    const handleResetSettings = useCallback(() => {
+        // Manually reset critical state variables first. This acts as a safeguard
+        // in case the page reload fails, ensuring the app is in a safe, default state.
+        setIsAutoTradingEnabled(false);
+        setTrades([]);
+        setPositionSellMarkers({});
+        setNotifications([]);
+        setSettings(theme === 'dark' ? DARK_THEME_SETTINGS : LIGHT_THEME_SETTINGS);
+
+        // Clear all persistent storage
+        localStorage.clear();
+        sessionStorage.clear();
+        
+        // Use a small timeout to give React a chance to process state updates
+        // before the page reloads. This improves reliability.
+        setTimeout(() => {
+            window.location.reload();
+        }, 50);
+
+    }, [theme]);
+
+    const handleSettingChange = useCallback((key: keyof Settings, value: boolean) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
+    }, []);
+
+    const handleAutoTradeTimeframeChange = useCallback((tf: Timeframe, value: boolean) => {
+        setSettings(prev => {
+            const currentlyEnabled = Object.values(prev.allowedAutoTradeTimeframes).filter(v => v).length;
+            if (value && currentlyEnabled >= 3) {
+                 // Temporarily show a toast instead of a jarring alert
+                setLiveToasts(prevToasts => [{
+                    id: Date.now(),
+                    read: false,
+                    symbol: 'Settings',
+                    timeframe: 'N/A' as Timeframe,
+                    type: 'bearish-divergence', // Re-use an existing style
+                    body: 'Max of 3 timeframes enabled.'
+                }, ...prevToasts]);
+
+                return prev;
+            }
+            return {
+                ...prev,
+                allowedAutoTradeTimeframes: {
+                    ...prev.allowedAutoTradeTimeframes,
+                    [tf]: value,
+                }
+            };
+        });
+    }, []);
+    
+    const handleTradeConditionChange = useCallback((type: 'buy' | 'sell', key: keyof TradeConditions['buy'] | keyof TradeConditions['sell'], value: boolean) => {
+        setSettings(prev => ({
+            ...prev,
+            tradeConditions: {
+                ...prev.tradeConditions,
+                [type]: {
+                    ...prev.tradeConditions[type],
+                    [key]: value,
+                }
+            }
+        }));
+    }, []);
+
+    const handleStrategyBChange = useCallback((value: boolean) => {
+        setSettings(prev => ({
+            ...prev,
+            tradeConditions: {
+                ...prev.tradeConditions,
+                strategyBEnabled: value,
+            }
+        }));
+    }, []);
+
+    const handleAlertConditionChange = useCallback((key: keyof AlertConditions, value: boolean) => {
+        setSettings(prev => ({
+            ...prev,
+            alertConditions: {
+                ...prev.alertConditions,
+                [key]: value,
+            }
+        }));
+    }, []);
+
+    const handleTimeframeChange = useCallback((newTimeframe: Timeframe) => setTimeframe(newTimeframe), []);
+    
+    const handleSaveAssetList = useCallback((data: { allSymbols: string[], selectedSymbols: string[] }) => {
+        setAllSymbols(data.allSymbols);
+        setUserSymbols(data.selectedSymbols);
+        setFavorites(prev => prev.filter(fav => data.allSymbols.includes(fav)));
+        setIsAssetModalOpen(false);
+    }, []);
+
+    const handleSelectRsiSymbol = useCallback((symbol: string) => { setActiveSymbol(symbol); setActiveModal('rsi'); }, []);
+    const handleSelectStochSymbol = useCallback((symbol: string) => { setActiveSymbol(symbol); setActiveModal('stoch'); }, []);
+    const handleSelectPriceSymbol = useCallback((symbol: string) => { setActiveSymbol(symbol); setActiveModal('price'); }, []);
+    const handleSwitchToPriceChart = useCallback(() => { if (activeSymbol) setActiveModal('price'); }, [activeSymbol]);
+    const handleSwitchToRsiChart = useCallback(() => setActiveModal('rsi'), []);
+    const handleSwitchToStochChart = useCallback(() => setActiveModal('stoch'), []);
+    const handleCloseModal = useCallback(() => { setActiveSymbol(null); setActiveModal(null); }, []);
+    const handleSearchChange = useCallback((term: string) => setSearchTerm(term), []);
+    const toggleFavorite = useCallback((symbol: string) => {
+        setFavorites(prev => prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]);
+    }, []);
+    
+    const handleSettingsToggle = useCallback(() => setIsSettingsOpen(isOpen => !isOpen), []);
+    const handlePaperTradingToggle = useCallback(() => setIsPaperTradingOpen(isOpen => !isOpen), []);
+    const handleShowFavoritesToggle = useCallback(() => setShowFavoritesOnly(prev => !prev), []);
+    
+    const handleClosePosition = useCallback((symbol: string, timeframe: Timeframe) => {
+        const position = openPositions.find(p => p.symbol === symbol && p.timeframe === timeframe);
+        if (position) {
+            handleTrade(symbol, 'sell', position.quantity, timeframe);
+            setPositionSellMarkers(prev => {
+                const newState = { ...prev };
+                delete newState[`${symbol}-${timeframe}`];
+                return newState;
+            });
+        }
+    }, [openPositions, handleTrade]);
+    
+    const handleSortChange = useCallback(() => {
+        setSortOrder(currentOrder => {
+            if (viewMode === 'price') {
+                if (currentOrder === 'chg-asc') return 'chg-desc';
+                if (currentOrder === 'chg-desc') return 'default';
+                return 'chg-asc';
+            } else if (viewMode === 'stoch') {
+                if (currentOrder === 'stoch-asc') return 'stoch-desc';
+                if (currentOrder === 'stoch-desc') return 'default';
+                return 'stoch-asc';
+            } else {
+                if (currentOrder === 'rsi-asc') return 'rsi-desc';
+                if (currentOrder === 'rsi-desc') return 'default';
+                return 'rsi-asc';
+            }
+        });
+    }, [viewMode]);
+    
+    const handleViewModeChange = (newMode: ViewMode) => { setViewMode(newMode); setSortOrder('default'); };
+    const handleNavigateToFullView = useCallback(() => { setActiveModal(null); setPage('full-view'); }, []);
+    const handleNavigateBack = useCallback(() => { console.clear(); setPage('dashboard'); setActiveSymbol(null); }, []);
+
+    const displayedSymbols = useMemo(() => {
+        let symbols = userSymbols.filter(symbol => symbol.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (showFavoritesOnly) symbols = symbols.filter(s => favorites.includes(s));
+
+        if (sortOrder !== 'default' && Object.keys(symbolsData).length > 0) {
+            symbols.sort((a, b) => {
+                const dataA = symbolsData[a];
+                const dataB = symbolsData[b];
+
+                if (sortOrder.startsWith('rsi')) {
+                    const rsiA = dataA?.rsi?.[dataA.rsi.length - 1]?.value ?? (sortOrder === 'rsi-desc' ? -1 : 101);
+                    const rsiB = dataB?.rsi?.[dataB.rsi.length - 1]?.value ?? (sortOrder === 'rsi-desc' ? -1 : 101);
+                    return sortOrder === 'rsi-desc' ? rsiB - rsiA : rsiA - rsiB;
+                }
+                if (sortOrder.startsWith('chg')) {
+                    const getChange = (data: SymbolData | undefined) => {
+                        if (!data?.klines || data.klines.length < 2) return (sortOrder === 'chg-desc' ? -Infinity : Infinity);
+                        const currentPrice = data.klines[data.klines.length - 1].close;
+                        const previousPrice = data.klines[0].close;
+                        return previousPrice === 0 ? 0 : ((currentPrice - previousPrice) / previousPrice) * 100;
+                    };
+                    return sortOrder === 'chg-desc' ? getChange(dataB) - getChange(dataA) : getChange(dataA) - getChange(dataB);
+                }
+                if (sortOrder.startsWith('stoch')) {
+                    const getK = (data: SymbolData | undefined) => data?.stochK?.[data.stochK.length - 1]?.value ?? (sortOrder === 'stoch-desc' ? -1 : 101);
+                    // FIX: Changed `B` to `dataB` to correct a typo in the sorting logic.
+                    return sortOrder === 'stoch-desc' ? getK(dataB) - getK(dataA) : getK(dataA) - getK(dataB);
+                }
+                return 0;
+            });
+        }
+        return symbols;
+    }, [searchTerm, showFavoritesOnly, favorites, sortOrder, symbolsData, userSymbols]);
+    
+    if (isInitializing) return <SplashScreen />;
+    
+    if (page === 'full-view' && activeSymbol && symbolsData[activeSymbol]) {
+        return <FullViewPage symbol={activeSymbol} data={symbolsData[activeSymbol]} onBack={handleNavigateBack} settings={settings} timeframe={timeframe} />;
+    }
+
+    const getSortButtonContent = () => {
+        if (viewMode === 'price') {
+            switch (sortOrder) {
+                case 'chg-asc': return <>Chg % <i className="fa-solid fa-arrow-up text-xs"></i></>;
+                case 'chg-desc': return <>Chg % <i className="fa-solid fa-arrow-down text-xs"></i></>;
+                default: return <>Chg %</>;
+            }
+        }
+        if (viewMode === 'stoch') {
+            switch (sortOrder) {
+                case 'stoch-asc': return <>%K <i className="fa-solid fa-arrow-up text-xs"></i></>;
+                case 'stoch-desc': return <>%K <i className="fa-solid fa-arrow-down text-xs"></i></>;
+                default: return <>Sort by %K</>;
+            }
+        }
+        switch (sortOrder) {
+            case 'rsi-asc': return <>RSI <i className="fa-solid fa-arrow-up text-xs"></i></>;
+            case 'rsi-desc': return <>RSI <i className="fa-solid fa-arrow-down text-xs"></i></>;
+            default: return <>Sort by RSI</>;
+        }
+    };
+    const isSortActive = sortOrder !== 'default';
+
+    return (
+        <div className="min-h-screen bg-light-bg dark:bg-dark-bg text-dark-text dark:text-light-text font-sans flex flex-col">
+            <ToastContainer toasts={liveToasts} onRemove={removeLiveToast} />
+            <div className="container mx-auto p-4 flex-grow">
+                <CryptoHeader
+                    onTimeframeChange={handleTimeframeChange}
+                    onSettingsToggle={handleSettingsToggle}
+                    onPaperTradingToggle={handlePaperTradingToggle}
+                    timeframe={timeframe}
+                    timeframes={TIMEFRAMES}
+                    searchTerm={searchTerm}
+                    onSearchChange={handleSearchChange}
+                    notifications={notifications}
+                    onClearNotifications={clearNotifications}
+                    onMarkNotificationsRead={markNotificationsAsRead}
+                />
+                <main className="pt-40 md:pt-24">
+                    <div className="flex flex-wrap justify-end items-center gap-4 mb-4">
+                        <div className="flex items-center gap-1 bg-light-card dark:bg-dark-card p-1 rounded-lg border border-light-border dark:border-dark-border">
+                            <button onClick={() => handleViewModeChange('chart')} className={`px-3 py-2 text-sm rounded-md transition ${viewMode === 'chart' ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg' : 'text-medium-text-light dark:text-medium-text hover:bg-light-border dark:hover:bg-dark-border'}`} aria-label="RSI Chart View" title="RSI Chart View"><i className="fa-solid fa-chart-line"></i></button>
+                            {settings.showStochView && <button onClick={() => handleViewModeChange('stoch')} className={`px-3 py-2 text-sm rounded-md transition ${viewMode === 'stoch' ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg' : 'text-medium-text-light dark:text-medium-text hover:bg-light-border dark:hover:bg-dark-border'}`} aria-label="Stochastic RSI View" title="Stochastic RSI View"><i className="fa-solid fa-chart-simple"></i></button>}
+                            {settings.showHeatmapView && <button onClick={() => handleViewModeChange('heatmap')} className={`px-3 py-2 text-sm rounded-md transition ${viewMode === 'heatmap' ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg' : 'text-medium-text-light dark:text-medium-text hover:bg-light-border dark:hover:bg-dark-border'}`} aria-label="Heatmap View" title="Heatmap View"><i className="fa-solid fa-table-cells"></i></button>}
+                            {settings.showPriceView && <button onClick={() => handleViewModeChange('price')} className={`px-3 py-2 text-sm rounded-md transition ${viewMode === 'price' ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg' : 'text-medium-text-light dark:text-medium-text hover:bg-light-border dark:hover:bg-dark-border'}`} aria-label="Price Chart View" title="Price Chart View"><i className="fa-solid fa-chart-area"></i></button>}
+                        </div>
+                        <button onClick={handleShowFavoritesToggle} className={`px-4 py-2 text-sm font-semibold rounded-lg transition flex items-center gap-2 border ${showFavoritesOnly ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg border-transparent' : 'bg-light-card dark:bg-dark-card text-medium-text-light dark:text-medium-text border-light-border dark:border-dark-border hover:bg-light-border dark:hover:bg-dark-border'}`} aria-pressed={showFavoritesOnly} aria-label="Toggle favorites filter">
+                            <i className={`fa-star ${showFavoritesOnly ? 'fa-solid' : 'fa-regular'}`}></i>
+                        </button>
+                        <button onClick={handleSortChange} className={`px-4 py-2 text-sm font-semibold rounded-lg transition flex items-center gap-2 border ${isSortActive ? 'bg-primary-light dark:bg-primary text-white dark:text-dark-bg border-transparent' : 'bg-light-card dark:bg-dark-card text-medium-text-light dark:text-medium-text border-light-border dark:border-dark-border hover:bg-light-border dark:hover:bg-dark-border'}`} aria-label="Cycle sort order">
+                            {getSortButtonContent()}
+                        </button>
+                    </div>
+                    {viewMode === 'chart' && <Grid loading={loading} symbols={displayedSymbols} symbolsData={symbolsData} onSelectSymbol={handleSelectRsiSymbol} settings={settings} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+                    {viewMode === 'stoch' && <StochGrid loading={loading} symbols={displayedSymbols} symbolsData={symbolsData} onSelectSymbol={handleSelectStochSymbol} settings={settings} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+                    {viewMode === 'heatmap' && <Heatmap loading={loading} symbols={displayedSymbols} symbolsData={symbolsData} onSelectSymbol={handleSelectRsiSymbol} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+                    {viewMode === 'price' && <PriceGrid loading={loading} symbols={displayedSymbols} symbolsData={symbolsData} onSelectSymbol={handleSelectPriceSymbol} settings={settings} favorites={favorites} onToggleFavorite={toggleFavorite} />}
+                </main>
+            </div>
+            {activeModal === 'rsi' && activeSymbol && symbolsData[activeSymbol] && <Modal symbol={activeSymbol} data={symbolsData[activeSymbol]} onClose={handleCloseModal} settings={settings} timeframe={timeframe} onSwitchToPriceChart={handleSwitchToPriceChart} onNavigateToFullView={handleNavigateToFullView} onSwitchToStochChart={handleSwitchToStochChart} />}
+            {activeModal === 'price' && activeSymbol && symbolsData[activeSymbol] && <PriceDetailModal symbol={activeSymbol} data={symbolsData[activeSymbol]} onClose={handleCloseModal} settings={settings} timeframe={timeframe} onSwitchToRsiChart={handleSwitchToRsiChart} onSwitchToStochChart={handleSwitchToStochChart} />}
+            {activeModal === 'stoch' && activeSymbol && symbolsData[activeSymbol] && <StochDetailModal symbol={activeSymbol} data={symbolsData[activeSymbol]} onClose={handleCloseModal} settings={settings} timeframe={timeframe} onSwitchToRsiChart={handleSwitchToRsiChart} onSwitchToPriceChart={handleSwitchToPriceChart} />}
+            <SettingsPanel 
+                isOpen={isSettingsOpen} 
+                onClose={() => setIsSettingsOpen(false)} 
+                onOpenAssetModal={() => setIsAssetModalOpen(true)}
+                onOpenTradeSignalsModal={() => setIsTradeSignalsModalOpen(true)}
+                onOpenAlertsModal={() => setIsAlertsModalOpen(true)}
+                onReset={handleResetSettings}
+                theme={theme}
+                onThemeToggle={handleThemeToggle}
+                settings={settings}
+                onSettingChange={handleSettingChange}
+            />
+             <TradeSignalsModal 
+                isOpen={isTradeSignalsModalOpen}
+                onClose={() => setIsTradeSignalsModalOpen(false)}
+                settings={settings}
+                onTradeConditionChange={handleTradeConditionChange}
+                onAutoTradeTimeframeChange={handleAutoTradeTimeframeChange}
+                onStrategyBChange={handleStrategyBChange}
+            />
+            <AlertsModal
+                isOpen={isAlertsModalOpen}
+                onClose={() => setIsAlertsModalOpen(false)}
+                settings={settings}
+                onAlertConditionChange={handleAlertConditionChange}
+            />
+            <PaperTradingPanel 
+                isOpen={isPaperTradingOpen} 
+                onClose={() => setIsPaperTradingOpen(false)} 
+                openPositions={openPositions}
+                tradeHistory={trades}
+                symbolsData={symbolsData} 
+                onClosePosition={handleClosePosition} 
+                isAutoTradingEnabled={isAutoTradingEnabled}
+                onToggleAutoTrading={() => setIsAutoTradingEnabled(prev => !prev)}
+                timeframe={timeframe}
+                lastDataFetch={lastDataFetch}
+            />
+            <AssetListModal isOpen={isAssetModalOpen} onClose={() => setIsAssetModalOpen(false)} onSave={handleSaveAssetList} allSymbols={allSymbols} currentSymbols={userSymbols} />
+            <Footer />
+        </div>
+    );
+};
+
+export default App;
+

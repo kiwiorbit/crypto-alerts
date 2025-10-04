@@ -1,0 +1,5 @@
+{
+  "name": "strategy maker",
+  "description": "An advanced crypto scanner and automated paper trading bot. Monitor real-time RSI, Stochastic RSI, and divergences across hundreds of pairs. Features a powerful charting modal with Volume Profile, automated trading based on RSI crosses and divergences, and a multi-timeframe background scanner to catch every opportunity.",
+  "requestFramePermissions": []
+}
