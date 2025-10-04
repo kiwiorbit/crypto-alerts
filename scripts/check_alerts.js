@@ -16,7 +16,7 @@ const SYMBOLS_TO_CHECK = [
     'BEAMXUSDT', 'THETAUSDT', 'CHZUSDT', 'ZECUSDT', 'MANAUSDT', 'FXSUSDT', 'DYMUSDT', 'SUPERUSDT', 'SYSUSDT', 'SUSHIUSDT',
     'BATUSDT', 'CTSIUSDT', 'RAREUSDT', 'FIDAUSDT', 'VANRYUSDT', 'WUSDT', 'EGLDUSDT', 'REZUSDT', 'PHAUSDT', 'SYNUSDT',
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT','OGUSDT',
-    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'CAKEUSDT'
+    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'HEMIUSDT' , 'CAKEUSDT'
 ];
 const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
@@ -98,6 +98,8 @@ const sendDiscordWebhook = (notification) => {
         'rsi-extreme-oversold': 3066993,      // Green
         'rsi-sma-bullish-cross': 3066993,     // Green
         'rsi-sma-bearish-cross': 15158332,    // Red
+        'bullish-divergence': 3066993,        // Green
+        'bearish-divergence': 15158332,       // Red
     };
     const embed = {
         title: notification.title,
@@ -107,7 +109,6 @@ const sendDiscordWebhook = (notification) => {
     };
     const payload = JSON.stringify({ embeds: [embed] });
 
-    // Use Buffer.byteLength for accurate Content-Length with multi-byte characters (like emojis)
     const payloadByteLength = Buffer.byteLength(payload, 'utf8');
 
     console.log('[DEBUG] Payload being sent to Discord:', payload);
@@ -261,6 +262,108 @@ const calculateStatisticalTrailingStop = (klines, dataLength = 1, distributionLe
     return results;
 };
 
+// --- DIVERGENCE LOGIC ---
+const findPivots = (data, dataKey, lookbackLeft, lookbackRight, isHigh) => {
+    const pivots = [];
+    if (data.length < lookbackLeft + lookbackRight + 1) {
+        return [];
+    }
+    for (let i = lookbackLeft; i < data.length - lookbackRight; i++) {
+        const point = data[i];
+        if (point === null || point[dataKey] === null || point[dataKey] === undefined) continue;
+
+        const currentValue = point[dataKey];
+        let isPivot = true;
+
+        for (let j = 1; j <= lookbackLeft; j++) {
+            const comparePoint = data[i - j];
+            if (comparePoint === null || comparePoint[dataKey] === null || comparePoint[dataKey] === undefined) { isPivot = false; break; }
+            const compareValue = comparePoint[dataKey];
+            if (isHigh ? compareValue > currentValue : compareValue < currentValue) { isPivot = false; break; }
+        }
+        if (!isPivot) continue;
+
+        for (let j = 1; j <= lookbackRight; j++) {
+            const comparePoint = data[i + j];
+            if (comparePoint === null || comparePoint[dataKey] === null || comparePoint[dataKey] === undefined) { isPivot = false; break; }
+            const compareValue = comparePoint[dataKey];
+            if (isHigh ? compareValue >= currentValue : compareValue <= currentValue) { isPivot = false; break; }
+        }
+
+        if (isPivot) {
+            pivots.push({ index: i, value: currentValue, time: point.time });
+        }
+    }
+    return pivots;
+};
+
+const findClosestPivot = (pivot, candidatePivots, maxBarsApart) => {
+    let closest = null;
+    let smallestDiff = Infinity;
+    for (const candidate of candidatePivots) {
+        const diff = Math.abs(pivot.index - candidate.index);
+        if (diff <= maxBarsApart && diff < smallestDiff) {
+            smallestDiff = diff;
+            closest = candidate;
+        }
+    }
+    return closest;
+};
+
+const detectBullishDivergence = (klines, rsiData) => {
+    const lookback = 5, rangeMin = 5, rangeMax = 60, pivotMatchMaxBars = 3;
+    if (klines.length < rangeMax) return null;
+
+    const pricePivots = findPivots(klines, 'low', lookback, lookback, false);
+    const rsiPivots = findPivots(rsiData, 'value', lookback, lookback, false);
+
+    if (pricePivots.length < 2) return null;
+
+    for (let i = pricePivots.length - 2; i >= 0; i--) {
+        const pricePivot1 = pricePivots[i];
+        const pricePivot2 = pricePivots[pricePivots.length - 1];
+
+        if (pricePivot2.value >= pricePivot1.value) continue;
+        const rsiPivot1 = findClosestPivot(pricePivot1, rsiPivots, pivotMatchMaxBars);
+        const rsiPivot2 = findClosestPivot(pricePivot2, rsiPivots, pivotMatchMaxBars);
+        if (!rsiPivot1 || !rsiPivot2 || rsiPivot1.time === rsiPivot2.time) continue;
+        if (rsiPivot1.value > 45 || rsiPivot2.value > 45) continue;
+        if (rsiPivot2.value <= rsiPivot1.value) continue;
+        const barDifference = pricePivot2.index - pricePivot1.index;
+        if (barDifference < rangeMin || barDifference > rangeMax) continue;
+
+        return { pivotTime: rsiPivot2.time, rsiValue: rsiPivot2.value };
+    }
+    return null;
+};
+
+const detectBearishDivergence = (klines, rsiData) => {
+    const lookback = 5, rangeMin = 5, rangeMax = 60, pivotMatchMaxBars = 3;
+    if (klines.length < rangeMax) return null;
+
+    const pricePivots = findPivots(klines, 'high', lookback, lookback, true);
+    const rsiPivots = findPivots(rsiData, 'value', lookback, lookback, true);
+
+    if (pricePivots.length < 2) return null;
+
+    for (let i = pricePivots.length - 2; i >= 0; i--) {
+        const pricePivot1 = pricePivots[i];
+        const pricePivot2 = pricePivots[pricePivots.length - 1];
+
+        if (pricePivot2.value <= pricePivot1.value) continue;
+        const rsiPivot1 = findClosestPivot(pricePivot1, rsiPivots, pivotMatchMaxBars);
+        const rsiPivot2 = findClosestPivot(pricePivot2, rsiPivots, pivotMatchMaxBars);
+        if (!rsiPivot1 || !rsiPivot2 || rsiPivot1.time === rsiPivot2.time) continue;
+        if (rsiPivot1.value < 55 || rsiPivot2.value < 55) continue;
+        if (rsiPivot2.value >= rsiPivot1.value) continue;
+        const barDifference = pricePivot2.index - pricePivot1.index;
+        if (barDifference < rangeMin || barDifference > rangeMax) continue;
+
+        return { pivotTime: rsiPivot2.time, rsiValue: rsiPivot2.value };
+    }
+    return null;
+};
+
 // --- Main Alert Checking Logic ---
 const checkAlerts = (symbol, timeframe, data, states, now) => {
     const alerts = [];
@@ -354,6 +457,28 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         }
     }
     
+    // --- DIVERGENCE ALERTS ---
+    const isDivergenceEnabled = process.env.ALERT_DIVERGENCE_ENABLED === 'true';
+    if (isDivergenceEnabled) {
+        const bullishDivergence = detectBullishDivergence(data.klines, data.rsiForDiv);
+        if (bullishDivergence && canFire(`bullish-divergence-${bullishDivergence.pivotTime}`)) {
+            addAlert(
+                'bullish-divergence',
+                `${symbol} Bullish Divergence (${timeframe})`,
+                `A bullish divergence has been detected. RSI is at ${bullishDivergence.rsiValue.toFixed(2)}.`
+            );
+        }
+
+        const bearishDivergence = detectBearishDivergence(data.klines, data.rsiForDiv);
+        if (bearishDivergence && canFire(`bearish-divergence-${bearishDivergence.pivotTime}`)) {
+            addAlert(
+                'bearish-divergence',
+                `${symbol} Bearish Divergence (${timeframe})`,
+                `A bearish divergence has been detected. RSI is at ${bearishDivergence.rsiValue.toFixed(2)}.`
+            );
+        }
+    }
+
     return alerts;
 };
 
@@ -384,12 +509,13 @@ const main = async () => {
                     continue;
                 }
                 
-                const rsiData = calculateRSI(klines);
+                const rsiNumbers = calculateRSI(klines);
                 const data = {
                     klines,
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
-                    rsi: rsiData,
-                    sma: calculateSMA(rsiData, 14),
+                    rsi: rsiNumbers,
+                    sma: calculateSMA(rsiNumbers, 14),
+                    rsiForDiv: klines.map((k, i) => ({ time: k.time, value: rsiNumbers[i] }))
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
