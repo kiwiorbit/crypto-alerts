@@ -101,6 +101,7 @@ const sendDiscordWebhook = (notification) => {
         'bullish-divergence': 3066993,        // Green
         'bearish-divergence': 15158332,       // Red
         'wavetrend-confluence-buy': 3581519,  // Sky Blue
+        'high-conviction-buy': 1752220,       // Cyan
     };
     const embed = {
         title: notification.title,
@@ -310,6 +311,58 @@ const calculateWaveTrend = (klines, chlen = 9, avg = 12, malen = 3) => {
     return { wt1, wt2 };
 };
 
+const calculateStochRSI = (rsiData, stochLength = 14, kSmooth = 3, dSmooth = 3) => {
+    const firstRsiIndex = rsiData.findIndex(v => v !== null);
+    if (firstRsiIndex === -1) return { stochK: Array(rsiData.length).fill(null), stochD: Array(rsiData.length).fill(null) };
+    
+    const validRsiData = rsiData.slice(firstRsiIndex);
+
+    if (validRsiData.length < stochLength) return { stochK: Array(rsiData.length).fill(null), stochD: Array(rsiData.length).fill(null) };
+
+    const stochRsiValues = [];
+    for (let i = stochLength - 1; i < validRsiData.length; i++) {
+        const rsiWindow = validRsiData.slice(i - stochLength + 1, i + 1);
+        const highestRsi = Math.max(...rsiWindow);
+        const lowestRsi = Math.min(...rsiWindow);
+        const currentRsi = validRsiData[i];
+        const stochRsi = (highestRsi - lowestRsi) === 0 ? 0 : ((currentRsi - lowestRsi) / (highestRsi - lowestRsi)) * 100;
+        stochRsiValues.push(stochRsi);
+    }
+    
+    const kValues = [];
+    if (stochRsiValues.length >= kSmooth) {
+        for(let i = kSmooth - 1; i < stochRsiValues.length; i++) {
+            const kWindow = stochRsiValues.slice(i - kSmooth + 1, i + 1);
+            const kValue = kWindow.reduce((sum, val) => sum + val, 0) / kSmooth;
+            kValues.push(kValue);
+        }
+    }
+
+    const dValues = [];
+    if (kValues.length >= dSmooth) {
+        for(let i = dSmooth - 1; i < kValues.length; i++) {
+            const dWindow = kValues.slice(i - dSmooth + 1, i + 1);
+            const dValue = dWindow.reduce((sum, val) => sum + val, 0) / dSmooth;
+            dValues.push(dValue);
+        }
+    }
+
+    const stochKPadding = Array(rsiData.length - kValues.length).fill(null);
+    const stochDPadding = Array(rsiData.length - dValues.length).fill(null);
+
+    return { 
+        stochK: [...stochKPadding, ...kValues], 
+        stochD: [...stochDPadding, ...dValues]
+    };
+};
+
+const getAverageVolume = (klines, period) => {
+    if (klines.length < period) return 0;
+    const window = klines.slice(-period);
+    return window.reduce((sum, k) => sum + k.quoteVolume, 0) / window.length;
+};
+
+
 // --- DIVERGENCE LOGIC ---
 const findPivots = (data, dataKey, lookbackLeft, lookbackRight, isHigh) => {
     const pivots = [];
@@ -440,13 +493,13 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 
         if (prevTrail.bias === BEARISH && lastTrail.bias === BULLISH && canFire('luxalgo-bullish-flip')) {
             addAlert('luxalgo-bullish-flip',
-                `${symbol} Bot Buys (${timeframe})`,
+                `${symbol} Buy Signal (${timeframe})`,
                 `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`);
         }
 
         if (prevTrail.bias === BULLISH && lastTrail.bias === BEARISH && canFire('luxalgo-bearish-flip')) {
              addAlert('luxalgo-bearish-flip',
-                `${symbol} Bot Sells (${timeframe})`,
+                `${symbol} Sell Signal (${timeframe})`,
                 `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`);
         }
     }
@@ -549,6 +602,71 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
         }
     }
 
+    // --- HIGH-CONVICTION BUY ALERTS ---
+    const isHighConvictionBuyEnabled = process.env.ALERT_HIGH_CONVICTION_BUY_ENABLED === 'true';
+    if (isHighConvictionBuyEnabled && ['1h', '4h'].includes(timeframe)) {
+        const requiredLength = 101;
+        if (
+            data.klines.length >= requiredLength &&
+            data.stochK && data.stochK.length >= 2 &&
+            data.priceSma50 && data.priceSma50.length >= 2 &&
+            data.priceSma100 && data.priceSma100.length >= 2 &&
+            data.wt1 && data.wt1.length >= 2 &&
+            data.wt2 && data.wt2.length >= 2
+        ) {
+            const lastKline = data.klines[data.klines.length - 1];
+            const prevKline = data.klines[data.klines.length - 2];
+            const lastStochK = data.stochK[data.stochK.length - 1];
+            const lastWt1 = data.wt1[data.wt1.length - 1];
+            const prevWt1 = data.wt1[data.wt1.length - 2];
+            const lastWt2 = data.wt2[data.wt2.length - 1];
+            const prevWt2 = data.wt2[data.wt2.length - 2];
+            const lastSma50 = data.priceSma50[data.priceSma50.length - 1];
+            const prevSma50 = data.priceSma50[data.priceSma50.length - 2];
+            const lastSma100 = data.priceSma100[data.priceSma100.length - 1];
+            const prevSma100 = data.priceSma100[data.priceSma100.length - 2];
+
+            const allDataValid = [lastKline, prevKline, lastStochK, lastWt1, prevWt1, lastWt2, prevWt2, lastSma50, prevSma50, lastSma100, prevSma100].every(p => p !== null && p !== undefined);
+
+            if (allDataValid) {
+                const avgVolume = getAverageVolume(data.klines.slice(-21, -1), 20);
+                const isStochOversold = lastStochK < 25;
+                const isVolumeConfirmed = lastKline.quoteVolume > (avgVolume * 0.9);
+
+                if (isStochOversold && isVolumeConfirmed) {
+                    let scenarioMet = false;
+                    
+                    if (lastWt2 < -55 && (lastKline.close > lastSma50 || lastKline.close > lastSma100)) {
+                        scenarioMet = true;
+                    }
+
+                    const isBullishCross = prevWt1 <= prevWt2 && lastWt1 > lastWt2;
+                    if (isBullishCross && lastWt2 < -40) {
+                        const didTapSma50 = lastKline.low <= lastSma50 && lastKline.close > lastSma50;
+                        const didTapSma100 = lastKline.low <= lastSma100 && lastKline.close > lastSma100;
+                        if (didTapSma50 || didTapSma100) {
+                            scenarioMet = true;
+                        }
+
+                        const reclaimedSma50 = prevKline.close < prevSma50 && lastKline.close > lastSma50;
+                        const reclaimedSma100 = prevKline.close < prevSma100 && lastKline.close > lastSma100;
+                        if (reclaimedSma50 || reclaimedSma100) {
+                            scenarioMet = true;
+                        }
+                    }
+
+                    if (scenarioMet && canFire('high-conviction-buy')) {
+                        addAlert(
+                            'high-conviction-buy',
+                            `${symbol} High-Conviction Buy (${timeframe})`,
+                            `Multiple bullish confluence factors detected.`
+                        );
+                    }
+                }
+            }
+        }
+    }
+
 
     return alerts;
 };
@@ -575,19 +693,26 @@ const main = async () => {
                 const klinesRaw = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=300`).then(res => res.json());
                 const klines = klinesRaw.map(k => ({ time: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]), quoteVolume: parseFloat(k[7]), takerBuyQuoteVolume: parseFloat(k[10]) }));
 
-                if (klines.length < 50) {
+                if (klines.length < 101) {
                     console.log(`Skipping ${symbol} on ${timeframe} due to insufficient kline data (${klines.length}).`);
                     continue;
                 }
                 
                 const rsiNumbers = calculateRSI(klines);
+                const { stochK, stochD } = calculateStochRSI(rsiNumbers);
+                const priceCloses = klines.map(k => k.close);
                 const { wt1, wt2 } = calculateWaveTrend(klines);
+
                 const data = {
                     klines,
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
                     rsi: rsiNumbers,
                     sma: calculateSMA(rsiNumbers, 14),
                     rsiForDiv: klines.map((k, i) => ({ time: k.time, value: rsiNumbers[i] })),
+                    stochK,
+                    stochD,
+                    priceSma50: calculateSMA(priceCloses, 50),
+                    priceSma100: calculateSMA(priceCloses, 100),
                     wt1,
                     wt2,
                 };
