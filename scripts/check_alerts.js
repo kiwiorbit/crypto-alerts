@@ -5,7 +5,7 @@ import https from 'https';
 import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
-const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT','SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT', 'XPLUSDT.P', 'PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
+const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT', 'SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT', 'XPLUSDT.P', 'PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
     'BCHUSDT', 'ETCUSDT', 'VIRTUALUSDT', 'SEIUSDT', 'DOTUSDT', 'UNIUSDT', 'NEARUSDT', 'TAOUSDT', 'HBARUSDT', 'LINEAUSDT',
     'TIAUSDT', 'ETHFIUSDT', 'FETUSDT', 'APTUSDT', 'LDOUSDT', 'TONUSDT', 'RAYUSDT', 'PENDLEUSDT', 'SOMIUSDT', 'DIAUSDT',
     'BIOUSDT', 'RENDERUSDT', 'CGPTUSDT', 'CFXUSDT', 'JUPUSDT', 'BERAUSDT', 'GALAUSDT', 'GRTUSDT', 'SFPUSDT','LPTUSDT',
@@ -16,8 +16,8 @@ const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT'
     'BATUSDT', 'CTSIUSDT', 'RAREUSDT', 'FIDAUSDT', 'VANRYUSDT', 'WUSDT', 'EGLDUSDT', 'REZUSDT', 'PHAUSDT', 'SYNUSDT',
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT', 'SOLETH', 'ETHBTC',
     'AVAXETH', 'LINKETH', 'XRPETH', 'DOGEBTC', 'ADAETH', 'BNBETH', 'TRXETH', 'TRXXRP', 'SUIBTC', 'OGUSDT',
-    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'ASTERUSDT.P', 'HEMIUSDT' , 'CAKEUSDT' ];
-const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
+    'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'ASTERUSDT.P', 'HEMIUSDT' , 'CAKEUSDT'];
+const TIMEFRAMES_TO_CHECK = ['15m', '1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -140,7 +140,7 @@ const stdev = (source, length) => {
     const useLength = Math.min(source.length, length);
     if (useLength < 1) return 0;
     const series = source.slice(-useLength);
-    const mean = sma(series, useLength);
+    const mean = sma(series, useLength)[0]; // sma returns an array, we need the single value for stdev
     const variance = series.reduce((a, b) => a + (b - mean) ** 2, 0) / useLength;
     return Math.sqrt(variance);
 };
@@ -153,6 +153,49 @@ const ema = (source, length) => {
         emaValues.push(alpha * source[i] + (1 - alpha) * emaValues[i-1]);
     }
     return emaValues;
+};
+
+const calculateRSI = (klines, length = 14) => {
+    const closes = klines.map(k => k.close);
+    if (closes.length <= length) return [];
+    const gains = [];
+    const losses = [];
+    for (let i = 1; i < closes.length; i++) {
+        const change = closes[i] - closes[i - 1];
+        gains.push(Math.max(0, change));
+        losses.push(Math.max(0, -change));
+    }
+    let avgGain = gains.slice(0, length).reduce((sum, val) => sum + val, 0) / length;
+    let avgLoss = losses.slice(0, length).reduce((sum, val) => sum + val, 0) / length;
+    const rsiValues = [];
+    for (let i = length; i < gains.length; i++) {
+        const rs = avgLoss === 0 ? Infinity : avgGain / avgLoss;
+        rsiValues.push(100 - (100 / (1 + rs)));
+        avgGain = (avgGain * (length - 1) + gains[i]) / length;
+        avgLoss = (avgLoss * (length - 1) + losses[i]) / length;
+    }
+    return rsiValues.map((value, index) => ({
+        time: klines[length + index].time,
+        value: value,
+    }));
+};
+
+const calculateStochRSI = (rsiData, rsiLength = 14, stochLength = 14, kSmooth = 3) => {
+    if (rsiData.length < rsiLength + stochLength) return { stochK: [] };
+    const stochRsiValues = [];
+    for (let i = stochLength - 1; i < rsiData.length; i++) {
+        const rsiWindow = rsiData.slice(i - stochLength + 1, i + 1).map(p => p.value);
+        const highestRsi = Math.max(...rsiWindow);
+        const lowestRsi = Math.min(...rsiWindow);
+        const stochRsi = (highestRsi - lowestRsi) === 0 ? 0 : (rsiData[i].value - lowestRsi) / (highestRsi - lowestRsi) * 100;
+        stochRsiValues.push(stochRsi);
+    }
+    const kDataPoints = [];
+    for(let i = kSmooth - 1; i < stochRsiValues.length; i++) {
+        const kValue = stochRsiValues.slice(i - kSmooth + 1, i + 1).reduce((sum, val) => sum + val, 0) / kSmooth;
+        kDataPoints.push({ time: rsiData[stochLength - 1 + i].time, value: kValue });
+    }
+    return { stochK: kDataPoints };
 };
 
 const calculateWaveTrend = (klines, chlen = 9, avg = 12, malen = 3) => {
@@ -221,7 +264,9 @@ const calculateStatisticalTrailingStop = (klines, dataLength = 1, distributionLe
         const logTrWindow = logTrueRanges.slice(i - distributionLength + 1, i + 1).filter(v => v !== null);
         let delta;
         if (logTrWindow.length > 1) {
-            delta = Math.exp(sma(logTrWindow, distributionLength) + 2 * stdev(logTrWindow, distributionLength));
+            const avg = sma(logTrWindow, distributionLength)[0];
+            const std = stdev(logTrWindow, distributionLength);
+            delta = Math.exp(avg + 2 * std);
         } else if (currentTrail) {
             delta = currentTrail.delta;
         } else {
@@ -336,7 +381,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
     }
     
     // Volume Alerts
-    const avgVolume = sma(klines.slice(0, -1).map(k=>k.quoteVolume), 20);
+    const avgVolume = sma(klines.slice(0, -1).map(k=>k.quoteVolume), 20)[0];
     if (avgVolume > 0) {
         if (lastKline.quoteVolume > avgVolume * 2.5 && canFire('significant-volume-spike')) {
             addAlert('significant-bullish-volume-spike', `Volume Spike`, `${symbol} (${timeframe}) saw a significant volume spike.`, '⚡️');
@@ -351,7 +396,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
     }
     
     // High-Conviction Buy (simplified for server-side)
-    if (data.waveTrend1 && data.stochK && data.priceSma50) {
+    if (data.waveTrend1 && data.stochK && data.stochK.length > 0 && data.priceSma50) {
         const lastStochK = data.stochK[data.stochK.length - 1];
         if (lastStochK.value < 25) {
             const lastWt2 = data.waveTrend2[data.waveTrend2.length-1];
@@ -391,13 +436,16 @@ const main = async () => {
                 const priceObjectsForSma = klines.map(p => ({ time: p.time, value: p.close }));
 
                 // Calculate all necessary indicators
+                const rsiData = calculateRSI(klines);
+                const { stochK } = calculateStochRSI(rsiData);
+
                 const data = {
                     klines,
                     waveTrend1: calculateWaveTrend(klines).wt1,
                     waveTrend2: calculateWaveTrend(klines).wt2,
                     kiwiHunt: calculateKiwiHunt(klines),
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
-                    stochK: [], // Add stoch/sma if needed by alerts
+                    stochK: stochK,
                     priceSma50: sma(priceObjectsForSma.map(p=>p.value), 50).map((v, i) => ({time: priceObjectsForSma[i+49].time, value: v})),
                 };
 
