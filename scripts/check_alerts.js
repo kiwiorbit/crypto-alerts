@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
 const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT'];
-const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
+const TIMEFRAMES_TO_CHECK = ['15m', '1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -16,7 +16,7 @@ const fetch = (url, options = {}) => new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const reqOptions = {
         hostname: urlObj.hostname,
-        path: urlObj.pathname,
+        path: urlObj.pathname + urlObj.search, // FIX: Include query parameters
         method: options.method || 'GET',
         headers: options.headers || {},
     };
