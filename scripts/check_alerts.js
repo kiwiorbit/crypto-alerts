@@ -127,10 +127,13 @@ const sendDiscordWebhook = (notification) => {
 
 // --- INDICATOR CALCULATION LOGIC (Copied & adapted from the app) ---
 const sma = (source, length) => {
-    const useLength = Math.min(source.length, length);
-    if (useLength === 0) return 0;
-    const series = source.slice(-useLength);
-    return series.reduce((a, b) => a + b, 0) / useLength;
+    if (source.length < length) return [];
+    const smaValues = [];
+    for (let i = length - 1; i < source.length; i++) {
+        const sum = source.slice(i - length + 1, i + 1).reduce((acc, val) => acc + val, 0);
+        smaValues.push(sum / length);
+    }
+    return smaValues;
 };
 
 const stdev = (source, length) => {
@@ -143,6 +146,7 @@ const stdev = (source, length) => {
 };
 
 const ema = (source, length) => {
+    if (source.length === 0) return [];
     const alpha = 2 / (length + 1);
     const emaValues = [source[0]];
     for (let i = 1; i < source.length; i++) {
