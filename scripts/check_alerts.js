@@ -1,9 +1,10 @@
 // A self-contained Node.js script to check for specific crypto alerts and send them to Discord.
 // This runs in a GitHub Action, independent of the browser app.
 
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
 // Add or remove symbols you want to monitor here.
@@ -11,6 +12,10 @@ const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT'
 // Add or remove timeframes you want to monitor here.
 const TIMEFRAMES_TO_CHECK = ['15m', '1h', '4h'];
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const STATE_FILE_PATH = path.join(__dirname, 'alert_states.json');
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
 
