@@ -1,39 +1,88 @@
 // A self-contained Node.js script to check for specific crypto alerts and send them to Discord.
-// This runs in a GitHub Action, independent of the browser app.
+// This runs in a cloud environment (like Render Cron Jobs), independent of the browser app.
 
-import fs from 'fs';
-import path from 'path';
 import https from 'https';
 import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
-// Add or remove symbols you want to monitor here.
 const SYMBOLS_TO_CHECK = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT'];
-// Add or remove timeframes you want to monitor here.
-const TIMEFRAMES_TO_CHECK = ['15m', '1h', '4h'];
-const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
+const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const STATE_FILE_PATH = path.join(__dirname, 'alert_states.json');
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
 
 // --- Simple Fetch Implementation for Node.js ---
-const fetch = (url) => new Promise((resolve, reject) => {
-    https.get(url, (res) => {
+const fetch = (url, options = {}) => new Promise((resolve, reject) => {
+    const urlObj = new URL(url);
+    const reqOptions = {
+        hostname: urlObj.hostname,
+        path: urlObj.pathname,
+        method: options.method || 'GET',
+        headers: options.headers || {},
+    };
+
+    const req = https.request(reqOptions, (res) => {
+        // Immediately reject on non-2xx status codes for easier error handling
         if (res.statusCode < 200 || res.statusCode >= 300) {
-            return reject(new Error(`Status Code: ${res.statusCode}`));
+            let errorData = '';
+            res.on('data', chunk => errorData += chunk);
+            res.on('end', () => {
+                 reject(new Error(`Request Failed. Status Code: ${res.statusCode}. Body: ${errorData}`));
+            });
+            return;
         }
+
         let data = '';
         res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => resolve({ json: () => JSON.parse(data) }));
-    }).on('error', reject);
+        res.on('end', () => {
+            try {
+                // Assume JSON, but fall back to text if parsing fails
+                resolve({ json: () => JSON.parse(data), ok: true });
+            } catch (e) {
+                resolve({ text: () => data, ok: true });
+            }
+        });
+    });
+
+    req.on('error', reject);
+    if (options.body) req.write(options.body);
+    req.end();
 });
 
-// --- State Management ---
-const loadState = () => fs.existsSync(STATE_FILE_PATH) ? JSON.parse(fs.readFileSync(STATE_FILE_PATH)) : {};
-const saveState = (state) => fs.writeFileSync(STATE_FILE_PATH, JSON.stringify(state, null, 2));
+
+// --- State Management using JSONBin.io ---
+const loadState = async () => {
+    if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) return {};
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+            headers: { 'X-Master-Key': JSONBIN_API_KEY }
+        });
+        const data = await res.json();
+        return data.record || {};
+    } catch (e) {
+        console.error("Could not load state from JSONBin, starting fresh.", e.message);
+        return {};
+    }
+};
+
+const saveState = async (state) => {
+    if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) return;
+    try {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': JSONBIN_API_KEY
+            },
+            body: JSON.stringify(state)
+        });
+        if (!res.ok) {
+           console.error("Failed to save state to JSONBin.");
+        }
+    } catch (e) {
+        console.error("Error saving state to JSONBin:", e.message);
+    }
+};
 
 // --- Discord Webhook Sender ---
 const sendDiscordWebhook = (notification) => {
@@ -304,18 +353,22 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 // --- Main Execution ---
 const main = async () => {
     if (!DISCORD_WEBHOOK_URL) {
-        console.error("DISCORD_WEBHOOK_URL is not set! Please add it to your GitHub repository's secrets.");
+        console.error("DISCORD_WEBHOOK_URL is not set! Please add it as an environment variable.");
+        return;
+    }
+    if (!JSONBIN_API_KEY || !JSONBIN_BIN_ID) {
+        console.error("JSONBIN_API_KEY or JSONBIN_BIN_ID is not set! Please add them as environment variables.");
         return;
     }
 
-    const alertStates = loadState();
+    const alertStates = await loadState();
     const now = Date.now();
 
     for (const symbol of SYMBOLS_TO_CHECK) {
         for (const timeframe of TIMEFRAMES_TO_CHECK) {
             try {
                 console.log(`Processing ${symbol} on ${timeframe}...`);
-                const klinesRaw = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${timeframe}&limit=300`).then(res => res.json());
+                const klinesRaw = await fetch(`https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=300`).then(res => res.json());
                 const klines = klinesRaw.map(k => ({ time: k[0], open: parseFloat(k[1]), high: parseFloat(k[2]), low: parseFloat(k[3]), close: parseFloat(k[4]), volume: parseFloat(k[5]), quoteVolume: parseFloat(k[7]), takerBuyQuoteVolume: parseFloat(k[10]) }));
 
                 if (klines.length < 50) continue;
@@ -341,8 +394,8 @@ const main = async () => {
             }
         }
     }
-
-    saveState(alertStates);
+ 
+    await saveState(alertStates);
     console.log("All checks complete.");
 };
 
