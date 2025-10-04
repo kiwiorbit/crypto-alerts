@@ -100,6 +100,7 @@ const sendDiscordWebhook = (notification) => {
         'rsi-sma-bearish-cross': 15158332,    // Red
         'bullish-divergence': 3066993,        // Green
         'bearish-divergence': 15158332,       // Red
+        'wavetrend-confluence-buy': 3581519,  // Sky Blue
     };
     const embed = {
         title: notification.title,
@@ -260,6 +261,53 @@ const calculateStatisticalTrailingStop = (klines, dataLength = 1, distributionLe
         results.push({ time: kline.time, bias: currentTrail.bias, level: currentTrail.level });
     }
     return results;
+};
+
+const ema = (source, length) => {
+    const alpha = 2 / (length + 1);
+    const emaValues = [];
+    if (source.length === 0) return [];
+    
+    let firstValidIndex = source.findIndex(v => v !== null);
+    if (firstValidIndex === -1) return Array(source.length).fill(null);
+
+    for (let i = 0; i < firstValidIndex; i++) {
+        emaValues.push(null);
+    }
+
+    emaValues.push(source[firstValidIndex]); 
+
+    for (let i = firstValidIndex + 1; i < source.length; i++) {
+        const sourceVal = source[i];
+        const prevEma = emaValues[i-1];
+        if (sourceVal === null || prevEma === null) {
+            emaValues.push(prevEma);
+        } else {
+            emaValues.push(alpha * sourceVal + (1 - alpha) * prevEma);
+        }
+    }
+    return emaValues;
+};
+
+const calculateWaveTrend = (klines, chlen = 9, avg = 12, malen = 3) => {
+    if (klines.length < chlen + avg + malen) return { wt1: [], wt2: [] };
+
+    const hlc3 = klines.map(k => (k.high + k.low + k.close) / 3);
+    const esa = ema(hlc3, chlen);
+    const absDiff = hlc3.map((p, i) => (esa[i] !== null ? Math.abs(p - esa[i]) : null));
+    const de = ema(absDiff, chlen);
+
+    const ci = hlc3.map((p, i) => {
+        if (de[i] !== null && de[i] !== 0 && esa[i] !== null) {
+            return (p - esa[i]) / (0.015 * de[i]);
+        }
+        return null;
+    });
+
+    const wt1 = ema(ci, avg);
+    const wt2 = calculateSMA(wt1, malen);
+
+    return { wt1, wt2 };
 };
 
 // --- DIVERGENCE LOGIC ---
@@ -478,6 +526,29 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             );
         }
     }
+    
+    // --- WAVETREND CONFLUENCE BUY ---
+    const isWaveTrendEnabled = process.env.ALERT_WAVETREND_CONFLUENCE_ENABLED === 'true';
+    if (isWaveTrendEnabled && data.wt1 && data.wt1.length >= 2 && data.wt2 && data.wt2.length >= 2) {
+        const lastWt1 = data.wt1[data.wt1.length - 1];
+        const prevWt1 = data.wt1[data.wt1.length - 2];
+        const lastWt2 = data.wt2[data.wt2.length - 1];
+        const prevWt2 = data.wt2[data.wt2.length - 2];
+
+        if (lastWt1 !== null && prevWt1 !== null && lastWt2 !== null && prevWt2 !== null) {
+            const isBullishCross = prevWt1 <= prevWt2 && lastWt1 > lastWt2;
+            const isOversold = lastWt2 < -53;
+
+            if (isBullishCross && isOversold && canFire('wavetrend-confluence-buy')) {
+                addAlert(
+                    'wavetrend-confluence-buy',
+                    `${symbol} WaveTrend Confluence Buy (${timeframe})`,
+                    `Bullish cross detected while WaveTrend is oversold (${lastWt2.toFixed(2)}).`
+                );
+            }
+        }
+    }
+
 
     return alerts;
 };
@@ -510,12 +581,15 @@ const main = async () => {
                 }
                 
                 const rsiNumbers = calculateRSI(klines);
+                const { wt1, wt2 } = calculateWaveTrend(klines);
                 const data = {
                     klines,
                     luxalgoTrail: calculateStatisticalTrailingStop(klines),
                     rsi: rsiNumbers,
                     sma: calculateSMA(rsiNumbers, 14),
-                    rsiForDiv: klines.map((k, i) => ({ time: k.time, value: rsiNumbers[i] }))
+                    rsiForDiv: klines.map((k, i) => ({ time: k.time, value: rsiNumbers[i] })),
+                    wt1,
+                    wt2,
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
