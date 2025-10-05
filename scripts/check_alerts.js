@@ -102,11 +102,6 @@ const sendDiscordWebhook = (notification) => {
         'bearish-divergence': 15158332,       // Red
         'wavetrend-confluence-buy': 3581519,  // Sky Blue
         'high-conviction-buy': 1752220,       // Cyan
-        'kiwi-hunt-buy': 8311585,             // Lime Green
-        'kiwi-hunt-sell': 15158332,           // Red
-        'kiwi-hunt-crazy-buy': 16705372,      // Yellow
-        'kiwi-hunt-crazy-sell': 15105570,     // Orange
-        'kiwi-hunt-buy-trend': 2989933,       // Cyan
     };
     const embed = {
         title: notification.title,
@@ -368,61 +363,6 @@ const getAverageVolume = (klines, period) => {
 };
 
 
-const calculateEOT = (closes, lpPeriod, k1) => {
-    const alpha1 = (Math.cos(0.707 * 2 * Math.PI / 100) + Math.sin(0.707 * 2 * Math.PI / 100) - 1) / Math.cos(0.707 * 2 * Math.PI / 100);
-    const a1 = Math.exp(-1.414 * Math.PI / lpPeriod);
-    const b1 = 2 * a1 * Math.cos(1.414 * Math.PI / lpPeriod);
-    const c2 = b1;
-    const c3 = -a1 * a1;
-    const c1 = 1 - c2 - c3;
-    
-    let hp = [0, 0];
-    let filt = [0, 0];
-    let peak = [0];
-    const quotient = [];
-
-    for (let i = 2; i < closes.length; i++) {
-        const newHp = (1 - alpha1 / 2) ** 2 * (closes[i] - 2 * closes[i - 1] + closes[i - 2]) + 2 * (1 - alpha1) * hp[1] - (1 - alpha1) ** 2 * hp[0];
-        hp = [hp[1], newHp];
-        
-        const newFilt = c1 * (newHp + hp[0]) / 2 + c2 * filt[1] + c3 * filt[0];
-        filt = [filt[1], newFilt];
-
-        let newPeak = 0.991 * peak[0];
-        if (Math.abs(newFilt) > newPeak) newPeak = Math.abs(newFilt);
-        peak = [newPeak];
-
-        let x = 0;
-        if (newPeak !== 0) x = newFilt / newPeak;
-        
-        quotient.push((x + k1) / (k1 * x + 1));
-    }
-    return quotient;
-};
-
-const calculateKiwiHunt = (klines) => {
-    if (klines.length < 50) return { q1: [], trigger: [], q3: [], q5: [] };
-    const closes = klines.map(k => k.close);
-
-    const q1Raw = calculateEOT(closes, 6, 0);
-    const q3Raw = calculateEOT(closes, 27, 0.8);
-    const q5Raw = calculateEOT(closes, 11, 0.99);
-    
-    const scale = (val) => val * 60 + 50;
-
-    const lag = closes.length - q1Raw.length;
-    
-    const q1 = [...Array(lag).fill(null), ...q1Raw.map(scale)];
-    const q3 = [...Array(lag).fill(null), ...q3Raw.map(scale)];
-    const q5 = [...Array(lag).fill(null), ...q5Raw.map(scale)];
-
-    const triggerRaw = calculateSMA(q1.filter(v => v !== null), 2);
-    const trigger = [...Array(q1.length - triggerRaw.length).fill(null), ...triggerRaw];
-    
-    return { q1, trigger, q3, q5 };
-};
-
-
 // --- DIVERGENCE LOGIC ---
 const findPivots = (data, dataKey, lookbackLeft, lookbackRight, isHigh) => {
     const pivots = [];
@@ -553,13 +493,13 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
 
         if (prevTrail.bias === BEARISH && lastTrail.bias === BULLISH && canFire('luxalgo-bullish-flip')) {
             addAlert('luxalgo-bullish-flip',
-                `${symbol} Buy Signal (${timeframe})`,
+                `${symbol} Bot Buys (${timeframe})`,
                 `Trailing stop flipped to Bullish at $${lastKline.close.toFixed(4)}`);
         }
 
         if (prevTrail.bias === BULLISH && lastTrail.bias === BEARISH && canFire('luxalgo-bearish-flip')) {
              addAlert('luxalgo-bearish-flip',
-                `${symbol} Sell Signal (${timeframe})`,
+                `${symbol} Bot Sells (${timeframe})`,
                 `Trailing stop flipped to Bearish at $${lastKline.close.toFixed(4)}`);
         }
     }
@@ -658,58 +598,6 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                     `${symbol} Cipher Buy Signal (${timeframe})`,
                     `Bullish cross detected while WaveTrend is oversold (${lastWt2.toFixed(2)}).`
                 );
-            }
-        }
-    }
-
-    // --- KIWIHUNT ALERTS ---
-    if (data.kiwiHunt && data.kiwiHunt.q1.length >= 2) {
-        const { q1, trigger, q3, q5 } = data.kiwiHunt;
-        const lastQ1 = q1[q1.length - 1];
-        const prevQ1 = q1[q1.length - 2];
-        const lastTrigger = trigger[trigger.length - 1];
-        const prevTrigger = trigger[trigger.length - 2];
-        const lastQ3 = q3[q3.length - 1];
-        const lastQ5 = q5[q5.length - 1];
-
-        if ([lastQ1, prevQ1, lastTrigger, prevTrigger, lastQ3, lastQ5].every(v => v !== null)) {
-            const isBullishCross = prevQ1 <= prevTrigger && lastQ1 > lastTrigger;
-            const isBearishCross = prevQ1 >= prevTrigger && lastQ1 < lastTrigger;
-            
-            // Hunt Signals
-            if (process.env.ALERT_KIWIHUNT_HUNT_ENABLED === 'true') {
-                if (isBullishCross && lastQ1 <= 20 && lastQ3 <= -4 && lastQ5 <= -4 && canFire('kiwi-hunt-buy')) {
-                    addAlert('kiwi-hunt-buy', `KiwiHunt: Hunt Buy (${timeframe})`, `${symbol} Hunt signal detected.`);
-                }
-                if (isBearishCross && lastQ1 >= 80 && lastQ3 >= 104 && lastQ5 >= 104 && canFire('kiwi-hunt-sell')) {
-                    addAlert('kiwi-hunt-sell', `KiwiHunt: Hunt Sell (${timeframe})`, `${symbol} Hunt signal detected.`);
-                }
-            }
-            
-            // Crazy Signals
-            if (process.env.ALERT_KIWIHUNT_CRAZY_ENABLED === 'true') {
-                if (isBullishCross && lastQ3 <= -4 && canFire('kiwi-hunt-crazy-buy')) {
-                    addAlert('kiwi-hunt-crazy-buy', `KiwiHunt: Crazy Buy (${timeframe})`, `${symbol} Crazy signal detected.`);
-                }
-                if (isBearishCross && lastQ3 >= 104 && canFire('kiwi-hunt-crazy-sell')) {
-                    addAlert('kiwi-hunt-crazy-sell', `KiwiHunt: Crazy Sell (${timeframe})`, `${symbol} Crazy signal detected.`);
-                }
-            }
-            
-            // Buy Trend Signal
-            if (process.env.ALERT_KIWIHUNT_BUY_TREND_ENABLED === 'true') {
-                const stateKey = `${symbol}-${timeframe}-kh-trend-state`;
-                const currentState = states[stateKey] || { inPullback: false };
-                let newState = { ...currentState };
-                if (lastQ1 < 40) newState.inPullback = true;
-                if (newState.inPullback && isBullishCross && lastQ1 > 50) {
-                    if (canFire('kiwi-hunt-buy-trend')) {
-                        addAlert('kiwi-hunt-buy-trend', `KiwiHunt: Buy Trend (${timeframe})`, `${symbol} Buy trend signal detected.`);
-                    }
-                    newState.inPullback = false;
-                }
-                if (lastQ1 > 80) newState.inPullback = false;
-                if (newState.inPullback !== currentState.inPullback) states[stateKey] = newState;
             }
         }
     }
@@ -814,7 +702,6 @@ const main = async () => {
                 const { stochK, stochD } = calculateStochRSI(rsiNumbers);
                 const priceCloses = klines.map(k => k.close);
                 const { wt1, wt2 } = calculateWaveTrend(klines);
-                const kiwiHuntData = calculateKiwiHunt(klines);
 
                 const data = {
                     klines,
@@ -828,7 +715,6 @@ const main = async () => {
                     priceSma100: calculateSMA(priceCloses, 100),
                     wt1,
                     wt2,
-                    kiwiHunt: kiwiHuntData,
                 };
 
                 const firedAlerts = checkAlerts(symbol, timeframe, data, alertStates, now);
