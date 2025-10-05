@@ -97,6 +97,10 @@ The bot is now ready to run. It is scheduled to run automatically every 15 minut
 
 ## Introduction
 
+# Guideline: Deploying Your 24/7 Alert Bot on Render (Free Alternative)
+
+## Introduction
+
 This guide addresses the "Status Code: 451" error you are seeing in GitHub Actions. This error means GitHub's servers are being blocked by the Binance API, preventing the bot from getting market data.
 
 To fix this, we will use a free service called **Render.com** to run our bot from a different cloud location. Render's free servers don't save files, so we'll also use another free service called **JSONBin.io** to act as the bot's memory. This will remember which alerts have been sent and prevent duplicate notifications.
@@ -169,11 +173,6 @@ This is just like adding secrets to GitHub.
     *   **Key:** `ALERT_DIVERGENCE_ENABLED`, **Value:** `true`
     *   **Key:** `ALERT_WAVETREND_CONFLUENCE_ENABLED`, **Value:** `true`
     *   **Key:** `ALERT_HIGH_CONVICTION_BUY_ENABLED`, **Value:** `true`
-    *   **Key:** `ALERT_KIWIHUNT_HUNT_BUY_ENABLED`, **Value:** `true`
-    *   **Key:** `ALERT_KIWIHUNT_HUNT_SELL_ENABLED`, **Value:** `false`
-    *   **Key:** `ALERT_KIWIHUNT_CRAZY_BUY_ENABLED`, **Value:** `true`
-    *   **Key:** `ALERT_KIWIHUNT_CRAZY_SELL_ENABLED`, **Value:** `false`
-    *   **Key:** `ALERT_KIWIHUNT_BUY_TREND_ENABLED`, **Value:** `true`
 5.  Click **"Save Changes"**. Render will automatically start a new deployment with your secrets.
 
 ---
@@ -188,11 +187,6 @@ Your bot is now controlled by "feature flags" in your Environment Variables. Thi
 *   To receive **Divergence** alerts, make sure `ALERT_DIVERGENCE_ENABLED` is set to `true`.
 *   To receive **WaveTrend Confluence Buy** alerts, make sure `ALERT_WAVETREND_CONFLUENCE_ENABLED` is set to `true`.
 *   To receive **High-Conviction Buy** alerts, make sure `ALERT_HIGH_CONVICTION_BUY_ENABLED` is set to `true`.
-*   To receive **Hunt Buy (High)** alerts (high-quality reversal), set `ALERT_KIWIHUNT_HUNT_BUY_ENABLED` to `true`.
-*   To receive **Hunt Sell (High)** alerts (high-quality reversal), set `ALERT_KIWIHUNT_HUNT_SELL_ENABLED` to `true`.
-*   To receive **Crazy Buy (Medium)** alerts (strength from weakness), set `ALERT_KIWIHUNT_CRAZY_BUY_ENABLED` to `true`.
-*   To receive **Crazy Sell (Medium)** alerts (weakness from strength), set `ALERT_KIWIHUNT_CRAZY_SELL_ENABLED` to `true`.
-*   To receive **Trend Continuation** alerts, set `ALERT_KIWIHUNT_BUY_TREND_ENABLED` to `true`.
 
 You can set any of these to `false` at any time to disable them. After changing a variable, Render will automatically deploy the update.
 
