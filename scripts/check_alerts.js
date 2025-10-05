@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 // --- CONFIGURATION ---
 const SYMBOLS_TO_CHECK = [
-    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'ENAUSDT', 'AVAXUSDT', 'SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT', 'PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'WLDUSDT', 'DOGEUSDT', 'BNBUSDT', 'XRPUSDT', 'AVAXUSDT', 'SUIUSDT', 'ADAUSDT', 'TRXUSDT', 'LINKUSDT', 'ARBUSDT', 'PYTHUSDT', 'ATOMUSDT', 'FILUSDT', 'XLMUSDT',
     'BCHUSDT', 'ETCUSDT', 'VIRTUALUSDT', 'SEIUSDT', 'DOTUSDT', 'UNIUSDT', 'NEARUSDT', 'TAOUSDT', 'HBARUSDT',
     'TIAUSDT', 'ETHFIUSDT', 'FETUSDT', 'APTUSDT', 'LDOUSDT', 'TONUSDT', 'RAYUSDT', 'PENDLEUSDT', 'DIAUSDT',
     'BIOUSDT', 'RENDERUSDT', 'CGPTUSDT', 'CFXUSDT', 'JUPUSDT', 'BERAUSDT', 'GALAUSDT', 'GRTUSDT', 'SFPUSDT','LPTUSDT',
@@ -18,7 +18,7 @@ const SYMBOLS_TO_CHECK = [
     'CHRUSDT', 'AUCTIONUSDT', 'SNXUSDT', 'EDUUSDT', 'TNSRUSDT', 'XVGUSDT', 'GASUSDT', 'BICOUSDT','OGUSDT',
     'KAITOUSDT', 'CRVUSDT', 'TOWNSUSDT', 'CUSDT', 'RESOLVUSDT', 'PENGUUSDT', 'GPSUSDT', 'HEMIUSDT' , 'CAKEUSDT'
 ];
-const TIMEFRAMES_TO_CHECK = ['15m','1h', '4h'];
+const TIMEFRAMES_TO_CHECK = ['1h', '4h'];
 const { DISCORD_WEBHOOK_URL, JSONBIN_API_KEY, JSONBIN_BIN_ID } = process.env;
 
 const ALERT_COOLDOWN = 3 * 60 * 60 * 1000; // 3 hours
@@ -677,26 +677,22 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
             const isBearishCross = prevQ1 >= prevTrigger && lastQ1 < lastTrigger;
             
             // Hunt Signals
-            if (process.env.ALERT_KIWIHUNT_HUNT_BUY_ENABLED === 'true') {
+            if (process.env.ALERT_KIWIHUNT_HUNT_ENABLED === 'true') {
                 if (isBullishCross && lastQ1 <= 20 && lastQ3 <= -4 && lastQ5 <= -4 && canFire('kiwi-hunt-buy')) {
-                    addAlert('kiwi-hunt-buy', `${symbol} Hunt Buy (High) (${timeframe})`, 'A high-quality buy signal has been detected, indicating a potential reversal from an oversold state.');
+                    addAlert('kiwi-hunt-buy', `KiwiHunt: Hunt Buy (${timeframe})`, `${symbol} Hunt signal detected.`);
                 }
-            }
-            if (process.env.ALERT_KIWIHUNT_HUNT_SELL_ENABLED === 'true') {
                 if (isBearishCross && lastQ1 >= 80 && lastQ3 >= 104 && lastQ5 >= 104 && canFire('kiwi-hunt-sell')) {
-                    addAlert('kiwi-hunt-sell', `${symbol} Hunt Sell (High) (${timeframe})`, 'A high-quality sell signal has been detected, indicating a potential reversal from an overbought state.');
+                    addAlert('kiwi-hunt-sell', `KiwiHunt: Hunt Sell (${timeframe})`, `${symbol} Hunt signal detected.`);
                 }
             }
             
             // Crazy Signals
-            if (process.env.ALERT_KIWIHUNT_CRAZY_BUY_ENABLED === 'true') {
+            if (process.env.ALERT_KIWIHUNT_CRAZY_ENABLED === 'true') {
                 if (isBullishCross && lastQ3 <= -4 && canFire('kiwi-hunt-crazy-buy')) {
-                    addAlert('kiwi-hunt-crazy-buy', `${symbol} Hunt Buy (Medium) (${timeframe})`, "A strong 'strength from weakness' signal has been detected, indicating a potential reversal.");
+                    addAlert('kiwi-hunt-crazy-buy', `KiwiHunt: Crazy Buy (${timeframe})`, `${symbol} Crazy signal detected.`);
                 }
-            }
-            if (process.env.ALERT_KIWIHUNT_CRAZY_SELL_ENABLED === 'true') {
                 if (isBearishCross && lastQ3 >= 104 && canFire('kiwi-hunt-crazy-sell')) {
-                    addAlert('kiwi-hunt-crazy-sell', `${symbol} Crazy Sell (Medium) (${timeframe})`, "A strong 'weakness from strength' signal has been detected, indicating a potential reversal.");
+                    addAlert('kiwi-hunt-crazy-sell', `KiwiHunt: Crazy Sell (${timeframe})`, `${symbol} Crazy signal detected.`);
                 }
             }
             
@@ -708,7 +704,7 @@ const checkAlerts = (symbol, timeframe, data, states, now) => {
                 if (lastQ1 < 40) newState.inPullback = true;
                 if (newState.inPullback && isBullishCross && lastQ1 > 50) {
                     if (canFire('kiwi-hunt-buy-trend')) {
-                        addAlert('kiwi-hunt-buy-trend', `${symbol} Trend Continuation (${timeframe})`, 'A trend continuation signal has been detected, indicating a shallow pullback may be over.');
+                        addAlert('kiwi-hunt-buy-trend', `KiwiHunt: Buy Trend (${timeframe})`, `${symbol} Buy trend signal detected.`);
                     }
                     newState.inPullback = false;
                 }
